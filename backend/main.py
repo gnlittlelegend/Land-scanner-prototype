@@ -7,9 +7,11 @@ using rule-based processing.
 """
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Dict, Any, List
+import os
 import time
 import logging
 from datetime import datetime
@@ -46,24 +48,20 @@ from backend.exceptions.response_formatter import (
     format_processing_status
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Initialize configuration manager
 config = ConfigManager()
 
-# Create FastAPI app
 app = FastAPI(
     title="Land Scanner Prototype",
     description="A geospatial data analysis platform",
     version=config.get_app_version()
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -72,8 +70,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# Error handling middleware
 @app.middleware("http")
 async def error_handler_middleware(request: Request, call_next):
     """
@@ -92,7 +88,6 @@ async def error_handler_middleware(request: Request, call_next):
         response.headers["X-Request-ID"] = request_id
         return response
     except HTTPException as http_exc:
-        # Handle FastAPI's built-in HTTP exceptions
         logger.warning(f"[{request_id}] HTTP exception: {http_exc.status_code} - {http_exc.detail}")
         return JSONResponse(
             status_code=http_exc.status_code,
@@ -104,7 +99,6 @@ async def error_handler_middleware(request: Request, call_next):
             }
         )
     except PolygonValidationError as e:
-        # Handle polygon validation errors
         logger.warning(f"[{request_id}] Polygon validation error: {str(e)}")
         safe_error = SafeError(
             error_code=ErrorCode.POLYGON_VALIDATION_ERROR,
@@ -119,7 +113,6 @@ async def error_handler_middleware(request: Request, call_next):
             content=create_error_response(status_code, safe_error, request_id)
         )
     except ValueError as e:
-        # Handle validation errors
         logger.warning(f"[{request_id}] Validation error: {str(e)}")
         safe_error = SafeError(
             error_code=ErrorCode.VALIDATION_ERROR,
@@ -133,7 +126,6 @@ async def error_handler_middleware(request: Request, call_next):
             content=create_error_response(status_code, safe_error, request_id)
         )
     except Exception as e:
-        # Catch all unexpected exceptions
         logger.error(f"[{request_id}] Unexpected exception: {type(e).__name__}", exc_info=True)
         safe_error = SafeError(
             error_code=ErrorCode.INTERNAL_ERROR,
@@ -147,8 +139,6 @@ async def error_handler_middleware(request: Request, call_next):
             content=create_error_response(status_code, safe_error, request_id)
         )
 
-
-# API Endpoints
 
 @app.post("/analyze")
 async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
@@ -178,7 +168,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
     
     logger.info(f"Received analysis request: {request_id}")
     
-    # Initialize processing status tracking
     module_statuses = {
         "validation": ProcessingStatus.FAILED,
         "data_collection": ProcessingStatus.FAILED,
@@ -194,10 +183,8 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
     analysis_summary: Dict[str, Any] = {}
     
     try:
-        # ==================== STAGE 1: POLYGON VALIDATION ====================
         logger.info(f"[{request_id}] STAGE 1: Validating polygon...")
         
-        # Validate input has polygon
         if not request or "polygon" not in request:
             logger.warning(f"Request {request_id} missing polygon field")
             error_response = format_validation_error_response(
@@ -208,11 +195,10 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
         
         polygon_data = request.get("polygon")
         
-        # Validate polygon using PolygonValidator
         try:
             validated_polygon = PolygonValidator.validate(polygon_data)
             logger.info(
-                f"[{request_id}] ✓ Polygon validated: "
+                f"[{request_id}] Polygon validated: "
                 f"area={validated_polygon.area_sqkm:.2f} sq km"
             )
             module_statuses["validation"] = ProcessingStatus.SUCCESS
@@ -225,7 +211,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             error_response = format_validation_error_response(str(e), request_id)
             raise HTTPException(status_code=400, detail=error_response)
         
-        # ==================== STAGE 2: DATA COLLECTION ====================
         logger.info(f"[{request_id}] STAGE 2: Collecting data from providers...")
         
         try:
@@ -239,7 +224,7 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             module_statuses["data_collection"] = collection_status
             
             logger.info(
-                f"[{request_id}] ✓ Data collection complete: "
+                f"[{request_id}] Data collection complete: "
                 f"{len(collected_datasets)} datasets collected"
             )
             
@@ -265,7 +250,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             ))
             collected_datasets = []
         
-        # ==================== STAGE 3: DATA VALIDATION ====================
         logger.info(f"[{request_id}] STAGE 3: Validating collected data...")
         
         try:
@@ -276,12 +260,11 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                 module_statuses["data_validation"] = ProcessingStatus.SUCCESS
                 
                 logger.info(
-                    f"[{request_id}] ✓ Data validation complete: "
+                    f"[{request_id}] Data validation complete: "
                     f"{validation_summary.get('successful_datasets', 0)} successful, "
                     f"{validation_summary.get('failed_datasets', 0)} failed"
                 )
                 
-                # Track any validation warnings
                 if validation_summary.get("failed_datasets", 0) > 0:
                     errors.append(ErrorInfo(
                         module="data_validation",
@@ -304,7 +287,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                 severity="error"
             ))
         
-        # ==================== STAGE 4: DATA STANDARDIZATION ====================
         logger.info(f"[{request_id}] STAGE 4: Standardizing data to common format...")
         
         try:
@@ -332,7 +314,7 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             if standardized_datasets:
                 module_statuses["standardization"] = ProcessingStatus.SUCCESS
                 logger.info(
-                    f"[{request_id}] ✓ Standardization complete: "
+                    f"[{request_id}] Standardization complete: "
                     f"{len(standardized_datasets)} datasets standardized"
                 )
             else:
@@ -352,19 +334,14 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             ))
             standardized_datasets = {}
         
-        # ==================== STAGE 5: RULE ENGINE PROCESSING ====================
         logger.info(f"[{request_id}] STAGE 5: Processing with Rule Engine...")
         
         try:
             if standardized_datasets:
-                # TODO: Initialize rule engine with all enabled rules
-                # For now, create empty rule engine
                 rule_engine = RuleEngine(config={"request_id": request_id})
                 
-                # Execute rules (will return empty results until rules are registered)
                 rule_results = rule_engine.execute(standardized_datasets)
                 
-                # Convert rule results to AnalysisResponse format
                 for rule_id, rule_result in rule_results.items():
                     land_information[rule_id] = rule_result
                 
@@ -372,7 +349,7 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                 module_statuses["rule_engine"] = engine_status
                 
                 logger.info(
-                    f"[{request_id}] ✓ Rule Engine complete: "
+                    f"[{request_id}] Rule Engine complete: "
                     f"{len(rule_results)} rules executed"
                 )
             else:
@@ -391,11 +368,9 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                 severity="error"
             ))
         
-        # ==================== STAGE 6: OUTPUT GENERATION ====================
         logger.info(f"[{request_id}] STAGE 6: Generating output...")
         
         try:
-            # Determine overall status
             if module_statuses["validation"] == ProcessingStatus.SUCCESS:
                 if module_statuses["data_collection"] == ProcessingStatus.SUCCESS:
                     overall_status = ProcessingStatus.SUCCESS
@@ -404,7 +379,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             else:
                 overall_status = ProcessingStatus.FAILED
             
-            # Build analysis summary if not already populated
             if not analysis_summary.get("key_findings"):
                 analysis_summary["key_findings"] = []
                 if land_information:
@@ -412,10 +386,8 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                         if rule_result.status == ProcessingStatus.SUCCESS:
                             analysis_summary["key_findings"].append(rule_result.rule_name)
             
-            # Calculate processing time
             processing_time_ms = (time.time() - start_time) * 1000
             
-            # Build module status list
             processing_status_list = {
                 name: ModuleStatus(
                     module_name=name,
@@ -424,7 +396,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                 for name, status in module_statuses.items()
             }
             
-            # Build provider status list
             provider_status_list = [
                 {
                     "provider_name": provider_name,
@@ -435,7 +406,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                 for provider_name, status_info in provider_statuses.items()
             ]
             
-            # Create response
             response = AnalysisResponse(
                 request_id=request_id,
                 status=overall_status,
@@ -451,7 +421,7 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             module_statuses["output_generation"] = ProcessingStatus.SUCCESS
             
             logger.info(
-                f"[{request_id}] ✓ Analysis complete: "
+                f"[{request_id}] Analysis complete: "
                 f"status={overall_status.value}, "
                 f"time={processing_time_ms:.2f}ms"
             )
@@ -470,7 +440,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
                 severity="error"
             ))
             
-            # Return best-effort response with error status
             processing_time_ms = (time.time() - start_time) * 1000
             response = AnalysisResponse(
                 request_id=request_id,
@@ -488,14 +457,13 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
             )
             
             return response
-        
+    
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in analyze endpoint [{request_id}]: {str(e)}", exc_info=True)
         processing_time_ms = (time.time() - start_time) * 1000
         
-        # Return error response with request_id
         error_response = AnalysisResponse(
             request_id=request_id,
             status=ProcessingStatus.FAILED,
@@ -523,12 +491,6 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
 
 @app.get("/health")
 async def health_check() -> Dict[str, Any]:
-    """
-    Health check endpoint.
-    
-    Returns:
-        Service health status and version information
-    """
     return {
         "status": "healthy",
         "service": config.get_app_name(),
@@ -539,12 +501,6 @@ async def health_check() -> Dict[str, Any]:
 
 @app.get("/status")
 async def get_status() -> Dict[str, Any]:
-    """
-    Get prototype status and configuration.
-    
-    Returns:
-        Prototype information and enabled providers
-    """
     enabled_providers = config.get_enabled_providers()
     
     return {
@@ -557,15 +513,9 @@ async def get_status() -> Dict[str, Any]:
     }
 
 
-# Root endpoint
-@app.get("/")
-async def root() -> Dict[str, str]:
-    """Root endpoint with basic information."""
-    return {
-        "message": "Land Scanner Prototype API",
-        "version": config.get_app_version(),
-        "documentation": "/docs"
-    }
+frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 
 if __name__ == "__main__":
