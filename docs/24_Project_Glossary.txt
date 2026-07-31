@@ -1,0 +1,332 @@
+=========================================================
+DOCUMENT 24
+LAND SCANNER
+PROJECT GLOSSARY
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This glossary defines the standard terminology used
+throughout the Land Scanner Prototype documentation.
+
+Every developer, researcher, tester, and stakeholder shall
+use these definitions consistently to avoid ambiguity.
+
+=========================================================
+GENERAL TERMS
+=========================================================
+
+Prototype
+
+A working Proof of Concept (PoC) created to validate the
+technical feasibility of the proposed solution.
+
+---------------------------------------------------------
+
+Production
+
+The final deployable system intended for real-world usage.
+
+---------------------------------------------------------
+
+Workflow
+
+The complete sequence of operations performed during a land
+analysis request.
+
+---------------------------------------------------------
+
+Module
+
+An independent software component with a single
+responsibility.
+
+---------------------------------------------------------
+
+Architecture
+
+The overall structure and interaction of all software
+components.
+
+=========================================================
+GEOSPATIAL TERMS
+=========================================================
+
+Polygon
+
+A closed geographic boundary used as the analysis area.
+
+---------------------------------------------------------
+
+GeoJSON
+
+A standard JSON-based format used to represent geographic
+objects such as polygons, points, and lines.
+
+---------------------------------------------------------
+
+Geometry
+
+The spatial shape of an object.
+
+---------------------------------------------------------
+
+Feature
+
+A geographic object containing geometry and descriptive
+properties.
+
+---------------------------------------------------------
+
+Bounding Box (BBox)
+
+The smallest rectangle that completely contains a polygon.
+
+---------------------------------------------------------
+
+Coordinate Reference System (CRS)
+
+The coordinate system used to represent geographic
+locations.
+
+=========================================================
+DATA TERMS
+=========================================================
+
+Data Collector
+
+A module responsible for retrieving data from one external
+provider.
+
+---------------------------------------------------------
+
+Data Provider
+
+An external organization or service supplying geospatial
+datasets.
+
+---------------------------------------------------------
+
+Raw Data
+
+The original data received from a provider before any
+processing.
+
+---------------------------------------------------------
+
+Standardized Data
+
+Provider data converted into the project's common internal
+format.
+
+---------------------------------------------------------
+
+Metadata
+
+Information describing a dataset, such as source, update
+date, resolution, and license.
+
+=========================================================
+PROCESSING TERMS
+=========================================================
+
+Data Standardizer
+
+The module responsible for converting provider-specific data
+into the common internal data model.
+
+---------------------------------------------------------
+
+Rule Engine
+
+The core processing component that evaluates standardized
+data using deterministic rules.
+
+---------------------------------------------------------
+
+Rule
+
+A predefined logical condition used to generate structured
+analysis results.
+
+---------------------------------------------------------
+
+Output Generator
+
+The module responsible for constructing the final JSON
+response for the frontend.
+
+=========================================================
+SYSTEM TERMS
+=========================================================
+
+Frontend
+
+The user-facing web application developed using HTML, CSS,
+and JavaScript.
+
+---------------------------------------------------------
+
+Backend
+
+The FastAPI application responsible for request processing
+and orchestration.
+
+---------------------------------------------------------
+
+API
+
+Application Programming Interface used for communication
+between frontend and backend.
+
+---------------------------------------------------------
+
+Endpoint
+
+A specific API URL that performs a defined function.
+
+---------------------------------------------------------
+
+JSON
+
+JavaScript Object Notation used for request and response
+data.
+
+=========================================================
+QUALITY TERMS
+=========================================================
+
+Validation
+
+The process of verifying that input data satisfies required
+rules.
+
+---------------------------------------------------------
+
+Verification
+
+The process of confirming that software behaves according to
+its specification.
+
+---------------------------------------------------------
+
+Testing
+
+The process of evaluating software to identify defects and
+confirm expected behavior.
+
+---------------------------------------------------------
+
+Acceptance Criteria
+
+The conditions that must be satisfied before a module or the
+prototype is considered complete.
+
+=========================================================
+DEPLOYMENT TERMS
+=========================================================
+
+Render
+
+The cloud platform used to host the prototype.
+
+---------------------------------------------------------
+
+GitHub
+
+The source code repository platform used for version
+control.
+
+---------------------------------------------------------
+
+Environment Variable
+
+A configurable value supplied outside application code.
+
+=========================================================
+PROJECT TERMS
+=========================================================
+
+Prototype Scope
+
+The officially approved functionality included in the
+prototype.
+
+---------------------------------------------------------
+
+Future Scope
+
+Capabilities planned for later development phases but
+excluded from the prototype.
+
+---------------------------------------------------------
+
+Client Demonstration
+
+The presentation of the working prototype to validate the
+project concept and gather client feedback.
+
+=========================================================
+DOCUMENT TERMS
+=========================================================
+
+Requirement
+
+A capability or condition that the prototype must satisfy.
+
+---------------------------------------------------------
+
+Specification
+
+A detailed technical description of implementation
+requirements.
+
+---------------------------------------------------------
+
+Design
+
+The planned structure and behavior of software components.
+
+---------------------------------------------------------
+
+Roadmap
+
+The planned sequence of development activities.
+
+=========================================================
+GLOSSARY MAINTENANCE
+=========================================================
+
+New terminology introduced during development shall be added
+to this glossary to ensure consistent usage across all
+future documentation.
+
+=========================================================
+GLOSSARY ACCEPTANCE CRITERIA
+=========================================================
+
+✓ All project terminology is clearly defined.
+
+✓ Definitions remain consistent across documents.
+
+✓ Developers use standardized terminology.
+
+✓ Future documents reference this glossary where applicable.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+25_Data_Source_Specification.txt
+
+=========================================================
+END
+=========================================================

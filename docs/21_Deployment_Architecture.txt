@@ -1,0 +1,345 @@
+=========================================================
+DOCUMENT 21
+LAND SCANNER
+DEPLOYMENT ARCHITECTURE
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the deployment architecture for the
+Land Scanner Prototype.
+
+The objective is to deploy a stable, low-cost, publicly
+accessible prototype using Render while maintaining a simple
+architecture suitable for client demonstrations.
+
+=========================================================
+DEPLOYMENT OBJECTIVES
+=========================================================
+
+• Low Infrastructure Cost
+
+• Simple Deployment
+
+• Public Accessibility
+
+• Easy Maintenance
+
+• Fast Recovery
+
+• Minimal Operational Complexity
+
+=========================================================
+TARGET ENVIRONMENT
+=========================================================
+
+Hosting Platform
+
+• Render
+
+Operating System
+
+• Linux
+
+Deployment Type
+
+• Web Service
+
+Repository
+
+• GitHub
+
+=========================================================
+DEPLOYMENT ARCHITECTURE
+=========================================================
+
+                User
+                  │
+                  ▼
+        Frontend (HTML/CSS/JS)
+                  │
+             HTTPS Request
+                  │
+                  ▼
+         Render Web Service
+                  │
+             FastAPI Backend
+                  │
+        Internal Processing
+                  │
+    ┌─────────────┼─────────────┐
+    ▼             ▼             ▼
+Collector A   Collector B   Collector C
+    │             │             │
+    └─────────────┼─────────────┘
+                  ▼
+         Rule Engine
+                  ▼
+          JSON Response
+                  ▼
+             Frontend
+
+=========================================================
+DEPLOYMENT COMPONENTS
+=========================================================
+
+Frontend
+
+Responsibilities
+
+• User Interface
+
+• Map Display
+
+• Polygon Drawing
+
+• API Communication
+
+---------------------------------------------------------
+
+Backend
+
+Responsibilities
+
+• Request Processing
+
+• Data Collection
+
+• Rule Execution
+
+• JSON Response
+
+---------------------------------------------------------
+
+External Providers
+
+Responsibilities
+
+• Supply Open Geospatial Data
+
+=========================================================
+SOURCE CONTROL
+=========================================================
+
+Repository Platform
+
+GitHub
+
+---------------------------------------------------------
+
+Recommended Branches
+
+main
+
+development
+
+feature/*
+
+=========================================================
+BUILD PROCESS
+=========================================================
+
+Step 1
+
+Push source code to GitHub.
+
+↓
+
+Step 2
+
+Render detects repository changes.
+
+↓
+
+Step 3
+
+Render installs dependencies.
+
+↓
+
+Step 4
+
+Application starts using FastAPI.
+
+↓
+
+Step 5
+
+Prototype becomes publicly available.
+
+=========================================================
+APPLICATION STARTUP
+=========================================================
+
+Startup Tasks
+
+• Load configuration
+
+• Validate environment variables
+
+• Register API routes
+
+• Initialize managers
+
+• Verify application readiness
+
+=========================================================
+ENVIRONMENT VARIABLES
+=========================================================
+
+Recommended Variables
+
+• APP_ENV
+
+• APP_VERSION
+
+• LOG_LEVEL
+
+• REQUEST_TIMEOUT
+
+• ENABLED_PROVIDERS
+
+• MAX_POLYGON_AREA
+
+No sensitive credentials should be hardcoded.
+
+=========================================================
+NETWORK FLOW
+=========================================================
+
+Browser
+
+↓
+
+Frontend
+
+↓
+
+Backend API
+
+↓
+
+Open Data Providers
+
+↓
+
+Backend Processing
+
+↓
+
+JSON Response
+
+↓
+
+Browser
+
+=========================================================
+DEPLOYMENT RULES
+=========================================================
+
+Rule 1
+
+Frontend shall communicate only with backend APIs.
+
+---------------------------------------------------------
+
+Rule 2
+
+Backend shall communicate with external providers.
+
+---------------------------------------------------------
+
+Rule 3
+
+No direct browser access to provider APIs.
+
+---------------------------------------------------------
+
+Rule 4
+
+Configuration shall be supplied through environment
+variables or configuration files.
+
+=========================================================
+MONITORING
+=========================================================
+
+Prototype Monitoring
+
+• Application startup
+
+• Request status
+
+• Processing errors
+
+• Provider availability
+
+Render console logs are sufficient for prototype monitoring.
+
+=========================================================
+BACKUP STRATEGY
+=========================================================
+
+Prototype Requirements
+
+• GitHub repository
+
+• Documentation backups
+
+• Configuration backups
+
+Persistent runtime data backup is not required because the
+prototype does not depend on a production database.
+
+=========================================================
+RECOVERY STRATEGY
+=========================================================
+
+If deployment fails
+
+↓
+
+Correct source code
+
+↓
+
+Push updated version
+
+↓
+
+Automatic redeployment by Render
+
+=========================================================
+DEPLOYMENT ACCEPTANCE CRITERIA
+=========================================================
+
+✓ Application deploys successfully on Render.
+
+✓ Backend APIs are publicly accessible.
+
+✓ Frontend communicates with backend.
+
+✓ Open data providers can be reached.
+
+✓ Rule Engine executes successfully.
+
+✓ Client can access the prototype using a public URL.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+22_Project_Limitations.txt
+
+=========================================================
+END
+=========================================================
+

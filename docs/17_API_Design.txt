@@ -1,0 +1,392 @@
+=========================================================
+DOCUMENT 17
+LAND SCANNER
+API DESIGN SPECIFICATION
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the REST API specification for the
+Land Scanner Prototype.
+
+The API shall provide a simple, stable, and predictable
+interface between the frontend and backend.
+
+The prototype requires only a minimal set of APIs necessary
+for demonstration.
+
+=========================================================
+API DESIGN PRINCIPLES
+=========================================================
+
+• REST Architecture
+
+• JSON Communication
+
+• Stateless Requests
+
+• Simple Endpoints
+
+• Predictable Responses
+
+• Clear Error Messages
+
+=========================================================
+BASE URL
+=========================================================
+
+Local Development
+
+http://localhost:8000
+
+---------------------------------------------------------
+
+Production
+
+Render Deployment URL
+
+=========================================================
+CONTENT TYPE
+=========================================================
+
+Request
+
+application/json
+
+---------------------------------------------------------
+
+Response
+
+application/json
+
+=========================================================
+API ENDPOINTS
+=========================================================
+
+POST
+
+/analyze
+
+Purpose
+
+Start land analysis using a Polygon (GeoJSON).
+
+---------------------------------------------------------
+
+GET
+
+/health
+
+Purpose
+
+Verify that the backend service is running.
+
+---------------------------------------------------------
+
+GET
+
+/status
+
+Purpose
+
+Return prototype version and service information.
+
+=========================================================
+POST
+/analyze
+=========================================================
+
+Description
+
+Accepts a polygon, validates it, collects geospatial data,
+processes it through the Rule Engine, and returns structured
+land information.
+
+=========================================================
+REQUEST BODY
+=========================================================
+
+Required Fields
+
+• Polygon (GeoJSON)
+
+---------------------------------------------------------
+
+Optional Fields
+
+• Request ID
+
+• Client Version
+
+=========================================================
+REQUEST VALIDATION
+=========================================================
+
+The API shall verify
+
+• Valid JSON
+
+• Valid GeoJSON
+
+• Polygon Geometry
+
+• Required Fields
+
+Invalid requests shall return an error response.
+
+=========================================================
+PROCESSING PIPELINE
+=========================================================
+
+Receive Request
+
+↓
+
+Validate Polygon
+
+↓
+
+Collect Data
+
+↓
+
+Standardize Data
+
+↓
+
+Execute Rule Engine
+
+↓
+
+Generate Output
+
+↓
+
+Return JSON Response
+
+=========================================================
+SUCCESS RESPONSE
+=========================================================
+
+Response shall include
+
+• Status
+
+• Request ID
+
+• Processing Time
+
+• Analysis Summary
+
+• Land Information
+
+• Provider Summary
+
+=========================================================
+ERROR RESPONSE
+=========================================================
+
+Response shall include
+
+• Status
+
+• Error Code
+
+• Error Message
+
+• Processing Stage
+
+The API shall never expose internal implementation details
+or stack traces.
+
+=========================================================
+GET
+/health
+=========================================================
+
+Purpose
+
+Health monitoring.
+
+Response
+
+• Service Status
+
+• Version
+
+• Timestamp
+
+=========================================================
+GET
+/status
+=========================================================
+
+Purpose
+
+Prototype information.
+
+Response
+
+• Prototype Version
+
+• Build Information
+
+• Enabled Providers
+
+• Enabled Modules
+
+=========================================================
+HTTP STATUS CODES
+=========================================================
+
+200
+
+Successful Request
+
+---------------------------------------------------------
+
+400
+
+Invalid Request
+
+---------------------------------------------------------
+
+404
+
+Endpoint Not Found
+
+---------------------------------------------------------
+
+422
+
+Validation Error
+
+---------------------------------------------------------
+
+500
+
+Internal Processing Error
+
+=========================================================
+API SECURITY
+=========================================================
+
+Prototype Requirements
+
+• Input Validation
+
+• Request Size Limits
+
+• Safe Error Messages
+
+Authentication is intentionally excluded from the prototype.
+
+=========================================================
+PERFORMANCE GUIDELINES
+=========================================================
+
+The API should
+
+• Process one request at a time per client.
+
+• Minimize unnecessary external requests.
+
+• Return results suitable for live demonstrations.
+
+=========================================================
+VERSIONING
+=========================================================
+
+Prototype Version
+
+v1
+
+Future production versions may introduce explicit API
+versioning without breaking the prototype.
+
+=========================================================
+DESIGN RULES
+=========================================================
+
+Rule 1
+
+Frontend communicates only with backend APIs.
+
+---------------------------------------------------------
+
+Rule 2
+
+External providers are never accessed directly by the
+frontend.
+
+---------------------------------------------------------
+
+Rule 3
+
+Every response shall be JSON.
+
+---------------------------------------------------------
+
+Rule 4
+
+Every request shall be validated before processing.
+
+---------------------------------------------------------
+
+Rule 5
+
+Error responses shall remain readable and consistent.
+
+=========================================================
+FUTURE APIs
+=========================================================
+
+The architecture supports future addition of
+
+• Authentication APIs
+
+• User APIs
+
+• History APIs
+
+• Export APIs
+
+• AI Analysis APIs
+
+• Report Generation APIs
+
+without changing the existing API structure.
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+✓ /analyze accepts valid polygons.
+
+✓ Invalid requests are rejected.
+
+✓ /health reports service status.
+
+✓ /status returns prototype information.
+
+✓ Responses remain consistent.
+
+✓ API remains stateless.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+18_Development_Roadmap.txt
+
+=========================================================
+END
+=========================================================

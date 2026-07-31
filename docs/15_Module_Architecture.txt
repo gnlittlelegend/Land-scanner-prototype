@@ -1,0 +1,436 @@
+=========================================================
+DOCUMENT 15
+LAND SCANNER
+MODULE ARCHITECTURE
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the internal module architecture of the
+Land Scanner Prototype.
+
+The objective is to divide the prototype into small,
+independent, and replaceable modules.
+
+Each module shall have one clear responsibility.
+
+=========================================================
+ARCHITECTURE PRINCIPLES
+=========================================================
+
+• Single Responsibility
+
+• Loose Coupling
+
+• High Cohesion
+
+• Provider Independence
+
+• Rule Independence
+
+• Easy Maintenance
+
+• Future Expandability
+
+=========================================================
+MODULE HIERARCHY
+=========================================================
+
+Frontend
+
+↓
+
+Backend API
+
+↓
+
+Polygon Validator
+
+↓
+
+Data Source Manager
+
+↓
+
+Data Collectors
+
+↓
+
+Data Standardizer
+
+↓
+
+Rule Engine
+
+↓
+
+Output Generator
+
+↓
+
+Frontend Response
+
+=========================================================
+MODULE 01
+FRONTEND
+=========================================================
+
+Responsibilities
+
+• Display map
+
+• Draw polygon
+
+• Upload GeoJSON
+
+• Submit analysis request
+
+• Display analysis results
+
+• Display errors
+
+Dependencies
+
+Backend API only
+
+=========================================================
+MODULE 02
+BACKEND API
+=========================================================
+
+Responsibilities
+
+• Receive requests
+
+• Validate request format
+
+• Call internal modules
+
+• Return JSON response
+
+Dependencies
+
+Polygon Validator
+
+Data Source Manager
+
+Output Generator
+
+=========================================================
+MODULE 03
+POLYGON VALIDATOR
+=========================================================
+
+Responsibilities
+
+• Validate GeoJSON
+
+• Validate coordinates
+
+• Validate geometry
+
+• Calculate polygon metadata
+
+Output
+
+Validated Polygon Object
+
+=========================================================
+MODULE 04
+DATA SOURCE MANAGER
+=========================================================
+
+Responsibilities
+
+• Identify enabled providers
+
+• Execute collectors
+
+• Collect responses
+
+• Monitor execution status
+
+• Handle provider failures
+
+The manager coordinates collectors but does not process
+their data.
+
+=========================================================
+MODULE 05
+DATA COLLECTORS
+=========================================================
+
+Architecture
+
+One Collector
+
+↓
+
+One Provider
+
+Each collector performs
+
+• Request construction
+
+• Provider communication
+
+• Raw data retrieval
+
+• Basic response validation
+
+Collectors must not communicate with one another.
+
+=========================================================
+MODULE 06
+DATA STANDARDIZER
+=========================================================
+
+Responsibilities
+
+• Convert provider-specific data
+
+• Normalize field names
+
+• Normalize geometry
+
+• Normalize metadata
+
+Output
+
+Common Data Model
+
+=========================================================
+MODULE 07
+RULE ENGINE
+=========================================================
+
+Responsibilities
+
+• Execute rule modules
+
+• Combine rule results
+
+• Produce structured analysis
+
+The Rule Engine acts as an orchestrator.
+
+=========================================================
+RULE MODULE ARCHITECTURE
+=========================================================
+
+Rule Engine
+
+↓
+
+Land Rules
+
+↓
+
+Building Rules
+
+↓
+
+Road Rules
+
+↓
+
+Water Rules
+
+↓
+
+Elevation Rules
+
+↓
+
+Administrative Rules
+
+Each rule module
+
+• Receives standardized data
+
+• Performs one category of analysis
+
+• Returns structured results
+
+No rule module shall communicate directly with another.
+
+=========================================================
+MODULE 08
+OUTPUT GENERATOR
+=========================================================
+
+Responsibilities
+
+• Build JSON response
+
+• Prepare frontend data
+
+• Include processing status
+
+• Include error summary
+
+=========================================================
+MODULE 09
+CONFIGURATION MANAGER
+=========================================================
+
+Responsibilities
+
+• Load application settings
+
+• Manage provider configuration
+
+• Store timeout values
+
+• Enable or disable collectors
+
+Application logic shall not contain hardcoded configuration.
+
+=========================================================
+MODULE COMMUNICATION
+=========================================================
+
+Allowed Flow
+
+Frontend
+
+↓
+
+Backend API
+
+↓
+
+Validator
+
+↓
+
+Manager
+
+↓
+
+Collectors
+
+↓
+
+Standardizer
+
+↓
+
+Rule Engine
+
+↓
+
+Output Generator
+
+↓
+
+Frontend
+
+Direct communication outside this sequence is not permitted.
+
+=========================================================
+MODULE DEPENDENCY RULES
+=========================================================
+
+Rule 1
+
+Every module shall have one responsibility.
+
+---------------------------------------------------------
+
+Rule 2
+
+Modules communicate only through defined interfaces.
+
+---------------------------------------------------------
+
+Rule 3
+
+Collectors shall never access frontend components.
+
+---------------------------------------------------------
+
+Rule 4
+
+Rule modules shall never access external providers.
+
+---------------------------------------------------------
+
+Rule 5
+
+Output Generator shall never modify analysis results.
+
+=========================================================
+FUTURE MODULES
+=========================================================
+
+The architecture supports future addition of
+
+• AI Engine
+
+• Authentication Module
+
+• User Management
+
+• Database Layer
+
+• Cache Manager
+
+• Background Job Manager
+
+• Report Generator
+
+• Notification Service
+
+These modules shall integrate without changing the existing
+prototype workflow.
+
+=========================================================
+MODULE TESTING
+=========================================================
+
+Each module shall be testable independently.
+
+Testing shall verify
+
+• Correct inputs
+
+• Correct outputs
+
+• Error handling
+
+• Module isolation
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+✓ Every module has a single responsibility.
+
+✓ Modules remain loosely coupled.
+
+✓ Rule modules execute independently.
+
+✓ Provider replacement requires changes only to collectors.
+
+✓ New modules can be added without redesigning the system.
+
+✓ Prototype architecture remains simple and maintainable.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+16_Project_Folder_Structure.txt
+
+=========================================================
+END
+=========================================================

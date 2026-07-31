@@ -1,0 +1,487 @@
+=========================================================
+DOCUMENT 16
+LAND SCANNER
+PROJECT FOLDER STRUCTURE
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the official project directory
+structure for the Land Scanner Prototype.
+
+The objective is to ensure that every developer and every
+development AI follows the same project organization.
+
+A clear folder structure improves maintainability,
+readability, testing, and future expansion.
+
+=========================================================
+PROJECT ROOT
+=========================================================
+
+LandScannerPrototype/
+
+=========================================================
+ROOT DIRECTORY STRUCTURE
+=========================================================
+
+LandScannerPrototype/
+
+│
+
+├── backend/
+
+├── frontend/
+
+├── config/
+
+├── docs/
+
+├── tests/
+
+├── scripts/
+
+├── sample_data/
+
+├── logs/
+
+├── README.md
+
+├── requirements.txt
+
+└── .gitignore
+
+=========================================================
+BACKEND STRUCTURE
+=========================================================
+
+backend/
+
+│
+
+├── api/
+
+├── validators/
+
+├── managers/
+
+├── collectors/
+
+├── standardizers/
+
+├── rules/
+
+├── output/
+
+├── models/
+
+├── utils/
+
+├── services/
+
+├── exceptions/
+
+├── main.py
+
+└── __init__.py
+
+=========================================================
+API MODULE
+=========================================================
+
+api/
+
+Responsibilities
+
+• API Endpoints
+
+• Request Handling
+
+• Response Handling
+
+=========================================================
+VALIDATORS
+=========================================================
+
+validators/
+
+Responsibilities
+
+• Polygon Validation
+
+• GeoJSON Validation
+
+• Coordinate Validation
+
+=========================================================
+MANAGERS
+=========================================================
+
+managers/
+
+Responsibilities
+
+• Data Source Manager
+
+• Configuration Manager
+
+• Workflow Coordination
+
+=========================================================
+COLLECTORS
+=========================================================
+
+collectors/
+
+Each provider shall have an independent collector.
+
+Example
+
+collector_provider_a.py
+
+collector_provider_b.py
+
+collector_provider_c.py
+
+Responsibilities
+
+• External Communication
+
+• Raw Data Collection
+
+=========================================================
+STANDARDIZERS
+=========================================================
+
+standardizers/
+
+Responsibilities
+
+• Data Conversion
+
+• Metadata Normalization
+
+• Geometry Normalization
+
+=========================================================
+RULES
+=========================================================
+
+rules/
+
+Recommended Structure
+
+land/
+
+building/
+
+road/
+
+water/
+
+elevation/
+
+administrative/
+
+common/
+
+Each directory contains only rule implementations for one
+analysis category.
+
+=========================================================
+OUTPUT
+=========================================================
+
+output/
+
+Responsibilities
+
+• JSON Generator
+
+• Response Builder
+
+• Output Formatter
+
+=========================================================
+MODELS
+=========================================================
+
+models/
+
+Responsibilities
+
+• Request Models
+
+• Response Models
+
+• Internal Data Models
+
+=========================================================
+UTILITIES
+=========================================================
+
+utils/
+
+Responsibilities
+
+• Helper Functions
+
+• Shared Utilities
+
+• Common Calculations
+
+=========================================================
+SERVICES
+=========================================================
+
+services/
+
+Responsibilities
+
+• Shared Business Logic
+
+• Reusable Operations
+
+This directory should contain functionality that is used by
+multiple modules but does not belong to a specific collector
+or rule.
+
+=========================================================
+EXCEPTIONS
+=========================================================
+
+exceptions/
+
+Responsibilities
+
+• Custom Exceptions
+
+• Error Definitions
+
+• Error Mapping
+
+=========================================================
+FRONTEND STRUCTURE
+=========================================================
+
+frontend/
+
+│
+
+├── css/
+
+├── js/
+
+├── assets/
+
+├── geojson/
+
+└── index.html
+
+---------------------------------------------------------
+
+css/
+
+Application styles
+
+---------------------------------------------------------
+
+js/
+
+Application logic
+
+---------------------------------------------------------
+
+assets/
+
+Images
+
+Icons
+
+Static files
+
+---------------------------------------------------------
+
+geojson/
+
+Sample polygons for testing
+
+=========================================================
+CONFIG DIRECTORY
+=========================================================
+
+config/
+
+Suggested Files
+
+providers.json
+
+settings.json
+
+timeouts.json
+
+Prototype configuration shall be stored here.
+
+=========================================================
+DOCUMENTATION
+=========================================================
+
+docs/
+
+Contains
+
+Architecture
+
+Requirements
+
+Research
+
+Design Documents
+
+API Documentation
+
+=========================================================
+TEST DIRECTORY
+=========================================================
+
+tests/
+
+Contains
+
+Unit Tests
+
+Integration Tests
+
+Prototype Validation Tests
+
+=========================================================
+SCRIPTS
+=========================================================
+
+scripts/
+
+Contains
+
+Development utilities
+
+Data preparation scripts
+
+Environment setup scripts
+
+=========================================================
+SAMPLE DATA
+=========================================================
+
+sample_data/
+
+Contains
+
+Example GeoJSON files
+
+Example API responses
+
+Prototype testing datasets
+
+=========================================================
+LOG DIRECTORY
+=========================================================
+
+logs/
+
+Prototype runtime logs
+
+Debug logs
+
+Error logs
+
+=========================================================
+PROJECT ORGANIZATION RULES
+=========================================================
+
+Rule 1
+
+One responsibility per directory.
+
+---------------------------------------------------------
+
+Rule 2
+
+No business logic inside API endpoints.
+
+---------------------------------------------------------
+
+Rule 3
+
+Collectors only communicate with external providers.
+
+---------------------------------------------------------
+
+Rule 4
+
+Rules only process standardized data.
+
+---------------------------------------------------------
+
+Rule 5
+
+Configuration files shall remain outside source code.
+
+---------------------------------------------------------
+
+Rule 6
+
+Documentation shall be maintained inside the docs
+directory.
+
+=========================================================
+FUTURE EXPANSION
+=========================================================
+
+The folder structure supports future addition of
+
+• AI Modules
+
+• Database Layer
+
+• Authentication
+
+• Background Workers
+
+• Reporting
+
+• Monitoring
+
+without reorganizing the existing project.
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+✓ Every module has a dedicated location.
+
+✓ Source code remains organized.
+
+✓ Configuration is separated from logic.
+
+✓ Documentation is centralized.
+
+✓ Future modules can be added without restructuring the
+project.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+17_API_Design.txt
+
+=========================================================
+END
+=========================================================

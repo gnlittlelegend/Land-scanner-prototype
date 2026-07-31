@@ -1,0 +1,362 @@
+=========================================================
+DOCUMENT 26
+LAND SCANNER
+PROVIDER INTEGRATION DESIGN
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines how external geospatial data providers
+are integrated into the Land Scanner Prototype.
+
+The objective is to establish a provider-independent
+architecture where each external provider can be added,
+removed, or replaced without affecting the remaining system.
+
+=========================================================
+INTEGRATION PRINCIPLES
+=========================================================
+
+• Provider Independence
+
+• One Collector Per Provider
+
+• Standardized Internal Data
+
+• No Provider Logic Outside Collectors
+
+• Graceful Failure Handling
+
+=========================================================
+OVERALL INTEGRATION ARCHITECTURE
+=========================================================
+
+                 User Polygon
+                      │
+                      ▼
+            Data Source Manager
+                      │
+      ┌───────────────┼───────────────┐
+      ▼               ▼               ▼
+ Provider A      Provider B      Provider C
+  Collector       Collector       Collector
+      │               │               │
+      └───────────────┼───────────────┘
+                      ▼
+             Data Standardizer
+                      ▼
+             Common Data Model
+                      ▼
+                Rule Engine
+                      ▼
+              Structured Output
+
+=========================================================
+SUPPORTED PROVIDER CATEGORIES
+=========================================================
+
+Category
+
+Administrative Boundaries
+
+Purpose
+
+Administrative region lookup.
+
+---------------------------------------------------------
+
+Category
+
+Land Cover
+
+Purpose
+
+Land cover classification.
+
+---------------------------------------------------------
+
+Category
+
+Buildings
+
+Purpose
+
+Mapped building footprints.
+
+---------------------------------------------------------
+
+Category
+
+Road Network
+
+Purpose
+
+Road geometry and classification.
+
+---------------------------------------------------------
+
+Category
+
+Water Bodies
+
+Purpose
+
+Hydrology features.
+
+---------------------------------------------------------
+
+Category
+
+Elevation
+
+Purpose
+
+Terrain elevation.
+
+=========================================================
+COLLECTOR DESIGN
+=========================================================
+
+Each provider shall have one independent collector.
+
+Responsibilities
+
+• Build request
+
+• Send request
+
+• Receive response
+
+• Validate response
+
+• Return raw dataset
+
+Collectors shall never
+
+• Execute business rules
+
+• Communicate with other collectors
+
+• Generate frontend responses
+
+=========================================================
+DATA SOURCE MANAGER
+=========================================================
+
+Responsibilities
+
+• Identify required providers
+
+• Execute collectors
+
+• Monitor collector status
+
+• Merge responses
+
+• Continue processing if one provider fails
+
+=========================================================
+STANDARDIZATION PROCESS
+=========================================================
+
+Provider Response
+
+↓
+
+Collector
+
+↓
+
+Raw Dataset
+
+↓
+
+Standardizer
+
+↓
+
+Common Data Model
+
+No provider-specific fields shall remain after
+standardization.
+
+=========================================================
+COMMON DATA MODEL
+=========================================================
+
+Every standardized dataset shall contain
+
+• Source Identifier
+
+• Dataset Category
+
+• Geometry
+
+• Attributes
+
+• Metadata
+
+• Processing Status
+
+=========================================================
+PROVIDER PRIORITY
+=========================================================
+
+Each category may define
+
+Primary Provider
+
+↓
+
+Secondary Provider
+
+↓
+
+Fallback Handling
+
+If the primary provider is unavailable, the system may use
+the secondary provider when available.
+
+If no provider succeeds, the Rule Engine shall continue with
+remaining datasets.
+
+=========================================================
+FAILURE HANDLING
+=========================================================
+
+Collector Failure
+
+↓
+
+Log Failure
+
+↓
+
+Return Status
+
+↓
+
+Continue Remaining Collectors
+
+↓
+
+Generate Partial Analysis
+
+Prototype execution shall not terminate because of a single
+provider failure.
+
+=========================================================
+TIMEOUT STRATEGY
+=========================================================
+
+Each collector shall
+
+• Use configurable timeout values.
+
+• Abort long-running requests.
+
+• Return timeout status.
+
+=========================================================
+CONFIGURATION
+=========================================================
+
+Provider configuration shall include
+
+• Provider Name
+
+• Enabled Status
+
+• Timeout
+
+• Retry Count
+
+• Category
+
+• Collector Name
+
+Configuration shall be stored outside application source
+code.
+
+=========================================================
+INTEGRATION RULES
+=========================================================
+
+Rule 1
+
+One collector per provider.
+
+---------------------------------------------------------
+
+Rule 2
+
+Collectors never communicate directly.
+
+---------------------------------------------------------
+
+Rule 3
+
+Collectors return only raw datasets.
+
+---------------------------------------------------------
+
+Rule 4
+
+Standardizer converts every dataset.
+
+---------------------------------------------------------
+
+Rule 5
+
+Rule Engine processes only standardized data.
+
+=========================================================
+FUTURE EXTENSIBILITY
+=========================================================
+
+The architecture supports future addition of
+
+• Commercial Providers
+
+• Satellite Image Providers
+
+• AI Inference Services
+
+• Private GIS Servers
+
+• Enterprise Data Sources
+
+without redesigning the integration layer.
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+✓ Every provider has an independent collector.
+
+✓ Provider failures do not terminate the workflow.
+
+✓ Standardized data model is consistently used.
+
+✓ Provider replacement affects only the corresponding
+collector.
+
+✓ Prototype remains provider independent.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+27_Rule_Definitions.txt
+
+=========================================================
+END
+=========================================================

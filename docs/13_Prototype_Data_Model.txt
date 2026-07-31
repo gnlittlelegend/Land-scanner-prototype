@@ -1,0 +1,314 @@
+=========================================================
+DOCUMENT 13
+LAND SCANNER
+PROTOTYPE DATA MODEL
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the internal data model used by the
+Land Scanner Prototype.
+
+The objective is to ensure that every data provider,
+regardless of its original format, is converted into one
+common internal structure before processing.
+
+The Rule Engine shall process only standardized data.
+
+=========================================================
+DESIGN PRINCIPLES
+=========================================================
+
+• One Internal Data Model
+
+• Provider Independent
+
+• Simple Structure
+
+• Easy Validation
+
+• Easy Expansion
+
+=========================================================
+DATA MODEL OVERVIEW
+=========================================================
+
+External Provider
+
+↓
+
+Raw Data
+
+↓
+
+Collector
+
+↓
+
+Standardization
+
+↓
+
+Common Data Model
+
+↓
+
+Rule Engine
+
+↓
+
+Output Generator
+
+=========================================================
+ROOT OBJECT
+=========================================================
+
+Analysis Request
+
+Contains
+
+• Request Information
+
+• Polygon
+
+• Metadata
+
+• Standardized Data
+
+• Processing Status
+
+• Final Results
+
+=========================================================
+REQUEST INFORMATION
+=========================================================
+
+Fields
+
+• Request ID
+
+• Request Time
+
+• Processing Time
+
+• Prototype Version
+
+=========================================================
+POLYGON OBJECT
+=========================================================
+
+Contains
+
+• GeoJSON
+
+• Area
+
+• Bounding Box
+
+• Coordinate Reference System (CRS)
+
+=========================================================
+STANDARDIZED DATASET
+=========================================================
+
+Each dataset shall contain
+
+• Dataset Name
+
+• Data Category
+
+• Source Provider
+
+• Geometry Type
+
+• Features
+
+• Metadata
+
+=========================================================
+FEATURE OBJECT
+=========================================================
+
+Each feature shall contain only standardized attributes.
+
+Required Fields
+
+• Feature ID
+
+• Geometry
+
+• Properties
+
+• Confidence (if available)
+
+=========================================================
+PROPERTY OBJECT
+=========================================================
+
+The properties section shall contain normalized attribute
+names regardless of the original provider.
+
+Example
+
+Original Provider A
+
+Building_Name
+
+↓
+
+Original Provider B
+
+Name
+
+↓
+
+Internal Format
+
+name
+
+=========================================================
+METADATA
+=========================================================
+
+Every dataset shall contain
+
+• Provider Name
+
+• Dataset Name
+
+• Data Version (if available)
+
+• Resolution
+
+• Capture Date (if available)
+
+• Update Date
+
+• License
+
+=========================================================
+PROCESSING STATUS
+=========================================================
+
+Each module shall report
+
+• Started
+
+• Completed
+
+• Failed
+
+• Skipped
+
+This information is intended for debugging and prototype
+evaluation.
+
+=========================================================
+RULE ENGINE INPUT
+=========================================================
+
+The Rule Engine shall receive only
+
+• Standardized Data
+
+• Processing Metadata
+
+It shall never receive provider-specific formats.
+
+=========================================================
+OUTPUT MODEL
+=========================================================
+
+The final output shall contain
+
+• Analysis Summary
+
+• Land Information
+
+• Processing Status
+
+• Source Summary
+
+• Error Summary (if any)
+
+=========================================================
+DATA MODEL RULES
+=========================================================
+
+Rule 1
+
+All providers must use the same internal model.
+
+---------------------------------------------------------
+
+Rule 2
+
+Original provider field names shall not be used after
+standardization.
+
+---------------------------------------------------------
+
+Rule 3
+
+Missing values shall be represented consistently.
+
+---------------------------------------------------------
+
+Rule 4
+
+Every dataset shall include metadata.
+
+---------------------------------------------------------
+
+Rule 5
+
+Every processing stage shall preserve data integrity.
+
+=========================================================
+EXTENSIBILITY
+=========================================================
+
+The data model shall support future addition of
+
+• AI Results
+
+• Prediction Results
+
+• Change Detection
+
+• Time-Series Analysis
+
+• User Annotations
+
+without modifying existing core objects.
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+✓ All provider data can be standardized.
+
+✓ Rule Engine receives only common objects.
+
+✓ Output Generator uses standardized data.
+
+✓ Future datasets can be added without redesigning the
+  existing data model.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+14_Rule_Engine_Design.txt
+
+=========================================================
+END
+=========================================================

@@ -1,0 +1,223 @@
+=========================================================
+DOCUMENT 03
+LAND SCANNER
+PROJECT SCOPE
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines what is included and excluded from
+the prototype.
+
+The objective is to prevent unnecessary development and keep
+the prototype focused on client demonstration.
+
+=========================================================
+PROJECT SCOPE
+=========================================================
+
+The prototype shall demonstrate the complete workflow of
+collecting open geospatial data, processing the data using
+rule-based logic, and presenting useful land information
+through a simple web interface.
+
+The prototype is intended only for technical validation.
+
+=========================================================
+IN SCOPE
+=========================================================
+
+INPUT
+
+• Polygon (GeoJSON)
+
+---------------------------------------------------------
+
+DATA COLLECTION
+
+• Connect to selected Open Geospatial Data Sources
+
+• Retrieve required datasets
+
+• Validate received data
+
+---------------------------------------------------------
+
+DATA PROCESSING
+
+• Standardize collected data
+
+• Convert data into a common internal format
+
+• Execute Rule Engine
+
+---------------------------------------------------------
+
+OUTPUT
+
+• Land Information
+
+• JSON Output
+
+• Simple Information Panel
+
+---------------------------------------------------------
+
+USER INTERFACE
+
+• HTML
+
+• CSS
+
+• JavaScript
+
+• Simple Interactive Map
+
+---------------------------------------------------------
+
+BACKEND
+
+• Python
+
+• FastAPI
+
+---------------------------------------------------------
+
+HOSTING
+
+• Render
+
+=========================================================
+OUT OF SCOPE
+=========================================================
+
+The following items are intentionally excluded from the
+prototype.
+
+---------------------------------------------------------
+
+Artificial Intelligence
+
+Machine Learning
+
+Deep Learning
+
+Object Detection
+
+Image Classification
+
+Prediction Models
+
+---------------------------------------------------------
+
+Authentication
+
+Authorization
+
+Role Management
+
+---------------------------------------------------------
+
+Production Database
+
+Distributed Systems
+
+Load Balancing
+
+Microservices
+
+---------------------------------------------------------
+
+Payment System
+
+Billing
+
+Subscription
+
+---------------------------------------------------------
+
+Mobile Application
+
+Android
+
+iOS
+
+---------------------------------------------------------
+
+Enterprise Security
+
+Encryption Management
+
+Audit Logs
+
+Monitoring
+
+---------------------------------------------------------
+
+Production Optimization
+
+Caching
+
+Horizontal Scaling
+
+High Availability
+
+=========================================================
+PROTOTYPE BOUNDARIES
+=========================================================
+
+The prototype is expected to demonstrate only the minimum
+features required to validate the concept.
+
+No feature should be implemented unless it directly supports
+the client demonstration.
+
+=========================================================
+DELIVERABLES
+=========================================================
+
+The prototype should provide
+
+• Polygon-based analysis
+
+• Open data integration
+
+• Rule-based processing
+
+• Structured land information
+
+• Working web demonstration
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+The prototype scope is considered complete when
+
+✓ Polygon input functions correctly
+
+✓ Data collection completes successfully
+
+✓ Rule Engine executes successfully
+
+✓ Information is presented correctly
+
+✓ Client requirements are satisfied
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+04_Requirements_Analysis.txt
+
+=========================================================
+END
+=========================================================

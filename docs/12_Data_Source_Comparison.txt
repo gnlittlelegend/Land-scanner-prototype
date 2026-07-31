@@ -1,0 +1,356 @@
+=========================================================
+DOCUMENT 12
+LAND SCANNER
+DATA SOURCE COMPARISON
+Version : 1.0
+Status  : Working Document
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the comparison framework used to
+evaluate and select open geospatial data providers for the
+prototype.
+
+The purpose of this document is not to rank providers by
+popularity, but to identify the most suitable providers for
+a simple, reliable, low-complexity prototype.
+
+=========================================================
+COMPARISON OBJECTIVES
+=========================================================
+
+The comparison shall determine
+
+• Which provider is technically feasible
+
+• Which provider is easiest to integrate
+
+• Which provider provides reliable data
+
+• Which provider best satisfies prototype requirements
+
+=========================================================
+COMPARISON PROCESS
+=========================================================
+
+Step 1
+
+Identify provider
+
+↓
+
+Step 2
+
+Collect technical information
+
+↓
+
+Step 3
+
+Evaluate provider
+
+↓
+
+Step 4
+
+Assign score
+
+↓
+
+Step 5
+
+Recommend for Prototype or Future
+
+=========================================================
+COMPARISON TEMPLATE
+=========================================================
+
+Each provider shall be evaluated using the following fields.
+
+---------------------------------------------------------
+
+Provider Name
+
+---------------------------------------------------------
+
+Organization
+
+---------------------------------------------------------
+
+Dataset Name
+
+---------------------------------------------------------
+
+Data Category
+
+---------------------------------------------------------
+
+Coverage
+
+Global
+
+Regional
+
+Country
+
+---------------------------------------------------------
+
+Data Type
+
+Raster
+
+Vector
+
+API
+
+Download
+
+---------------------------------------------------------
+
+Spatial Resolution
+
+---------------------------------------------------------
+
+Temporal Resolution
+
+---------------------------------------------------------
+
+Update Frequency
+
+---------------------------------------------------------
+
+Polygon Support
+
+Yes / No / Partial
+
+---------------------------------------------------------
+
+API Availability
+
+Yes / No
+
+---------------------------------------------------------
+
+Download Availability
+
+Yes / No
+
+---------------------------------------------------------
+
+Authentication Required
+
+Yes / No
+
+---------------------------------------------------------
+
+Python Integration
+
+Easy
+
+Medium
+
+Complex
+
+---------------------------------------------------------
+
+Documentation Quality
+
+Excellent
+
+Good
+
+Average
+
+Limited
+
+---------------------------------------------------------
+
+License
+
+---------------------------------------------------------
+
+Known Limitations
+
+---------------------------------------------------------
+
+Prototype Recommendation
+
+Required
+
+Optional
+
+Future
+
+=========================================================
+SCORING MODEL
+=========================================================
+
+Accessibility
+
+10 Points
+
+---------------------------------------------------------
+
+Ease of Integration
+
+10 Points
+
+---------------------------------------------------------
+
+Documentation Quality
+
+10 Points
+
+---------------------------------------------------------
+
+Reliability
+
+10 Points
+
+---------------------------------------------------------
+
+Polygon Support
+
+10 Points
+
+---------------------------------------------------------
+
+Prototype Suitability
+
+10 Points
+
+---------------------------------------------------------
+
+Total
+
+60 Points
+
+=========================================================
+RECOMMENDATION SCALE
+=========================================================
+
+55–60
+
+Excellent
+
+Recommended Immediately
+
+---------------------------------------------------------
+
+45–54
+
+Very Good
+
+Recommended
+
+---------------------------------------------------------
+
+35–44
+
+Good
+
+Optional
+
+---------------------------------------------------------
+
+Below 35
+
+Future Evaluation
+
+=========================================================
+PROTOTYPE SELECTION RULES
+=========================================================
+
+Priority Order
+
+1.
+
+Reliability
+
+---------------------------------------------------------
+
+2.
+
+Ease of Integration
+
+---------------------------------------------------------
+
+3.
+
+Polygon Support
+
+---------------------------------------------------------
+
+4.
+
+Open License
+
+---------------------------------------------------------
+
+5.
+
+Stable Documentation
+
+---------------------------------------------------------
+
+6.
+
+Data Quality
+
+=========================================================
+FINAL PROTOTYPE TARGET
+=========================================================
+
+Prototype should finally include
+
+Approximately 5–6 providers
+
+Covering
+
+• Administrative Boundaries
+
+• Land Cover
+
+• Buildings
+
+• Roads
+
+• Water Bodies
+
+• Elevation
+
+Additional providers may be added only if they improve the
+prototype without increasing development complexity.
+
+=========================================================
+EXPECTED DELIVERABLE
+=========================================================
+
+This comparison document shall produce
+
+• Ranked provider list
+
+• Prototype provider shortlist
+
+• Future provider list
+
+• Integration priority
+
+• Technical justification for every selected provider
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+13_Prototype_Data_Model.txt
+
+=========================================================
+END
+=========================================================

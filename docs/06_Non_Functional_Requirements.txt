@@ -1,0 +1,262 @@
+=========================================================
+DOCUMENT 06
+LAND SCANNER
+NON-FUNCTIONAL REQUIREMENTS
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the quality attributes and operational
+requirements of the prototype.
+
+These requirements describe HOW the prototype should perform,
+rather than WHAT it should do.
+
+=========================================================
+DESIGN OBJECTIVES
+=========================================================
+
+The prototype shall be
+
+• Simple
+
+• Reliable
+
+• Modular
+
+• Maintainable
+
+• Easy to Demonstrate
+
+• Low Cost
+
+• Fast to Develop
+
+=========================================================
+PERFORMANCE
+=========================================================
+
+NFR-001
+
+The prototype should provide results within a reasonable
+time suitable for live demonstrations.
+
+---------------------------------------------------------
+
+NFR-002
+
+The system should avoid unnecessary processing.
+
+---------------------------------------------------------
+
+NFR-003
+
+Heavy computation shall not be used unless required.
+
+=========================================================
+RELIABILITY
+=========================================================
+
+NFR-004
+
+The system shall continue operating even if an optional
+data provider is unavailable.
+
+---------------------------------------------------------
+
+NFR-005
+
+Unexpected failures shall be handled gracefully.
+
+---------------------------------------------------------
+
+NFR-006
+
+The prototype shall always return a meaningful response,
+including error status when appropriate.
+
+=========================================================
+MODULARITY
+=========================================================
+
+NFR-007
+
+Each component shall perform one primary responsibility.
+
+---------------------------------------------------------
+
+NFR-008
+
+Individual modules shall be replaceable without major
+changes to the remaining system.
+
+---------------------------------------------------------
+
+NFR-009
+
+Data providers shall remain independent of the Rule Engine.
+
+=========================================================
+MAINTAINABILITY
+=========================================================
+
+NFR-010
+
+Project structure shall remain simple.
+
+---------------------------------------------------------
+
+NFR-011
+
+Source code shall be organized by module.
+
+---------------------------------------------------------
+
+NFR-012
+
+Configuration values shall remain outside application logic.
+
+=========================================================
+SCALABILITY
+=========================================================
+
+Prototype Requirement
+
+The system is NOT required to support production-scale
+traffic.
+
+Future expansion shall remain possible through modular
+architecture.
+
+=========================================================
+USABILITY
+=========================================================
+
+NFR-013
+
+The prototype interface shall be simple enough for client
+demonstration.
+
+---------------------------------------------------------
+
+NFR-014
+
+User interaction shall require minimal steps.
+
+---------------------------------------------------------
+
+NFR-015
+
+Output shall be easy to understand.
+
+=========================================================
+PORTABILITY
+=========================================================
+
+NFR-016
+
+The prototype shall run in a Linux environment.
+
+---------------------------------------------------------
+
+NFR-017
+
+The application shall be deployable on Render.
+
+=========================================================
+COST
+=========================================================
+
+NFR-018
+
+Development shall prioritize open-source technologies.
+
+---------------------------------------------------------
+
+NFR-019
+
+Prototype infrastructure cost shall remain minimal.
+
+---------------------------------------------------------
+
+NFR-020
+
+Commercial services should be avoided unless absolutely
+necessary.
+
+=========================================================
+SECURITY
+=========================================================
+
+Prototype Security Requirements
+
+• Basic input validation
+
+• Safe error handling
+
+• No sensitive information exposed
+
+Advanced production security is outside the prototype scope.
+
+=========================================================
+DEPENDENCIES
+=========================================================
+
+The prototype should minimize external dependencies.
+
+Only libraries required for prototype functionality should
+be included.
+
+=========================================================
+QUALITY ATTRIBUTES
+=========================================================
+
+Priority Order
+
+1. Reliability
+
+2. Simplicity
+
+3. Maintainability
+
+4. Modularity
+
+5. Performance
+
+6. Extensibility
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+The non-functional requirements are satisfied when
+
+✓ Prototype remains stable during demonstration.
+
+✓ Individual modules operate independently.
+
+✓ Project can be deployed on Render.
+
+✓ Client interaction remains simple.
+
+✓ Development complexity remains low.
+
+✓ Infrastructure cost remains minimal.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+07_Technical_Requirements.txt
+
+=========================================================
+END
+=========================================================

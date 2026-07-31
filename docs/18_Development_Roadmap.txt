@@ -1,0 +1,383 @@
+=========================================================
+DOCUMENT 18
+LAND SCANNER
+DEVELOPMENT ROADMAP
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the official development roadmap for
+the Land Scanner Prototype.
+
+The roadmap provides a structured implementation sequence to
+ensure the prototype is developed in a logical, testable,
+and low-risk manner.
+
+The objective is to complete a working prototype as quickly
+as possible while maintaining code quality and modularity.
+
+=========================================================
+DEVELOPMENT PRINCIPLES
+=========================================================
+
+• Build Incrementally
+
+• Validate Every Module
+
+• Keep Components Independent
+
+• Avoid Premature Optimization
+
+• Prototype Before Production
+
+=========================================================
+PHASE 01
+PROJECT INITIALIZATION
+=========================================================
+
+Objectives
+
+• Create project repository
+
+• Create official folder structure
+
+• Configure Python environment
+
+• Install required libraries
+
+• Configure Git
+
+Deliverables
+
+✓ Project structure
+
+✓ requirements.txt
+
+✓ README.md
+
+✓ Initial application startup
+
+=========================================================
+PHASE 02
+BACKEND FOUNDATION
+=========================================================
+
+Objectives
+
+• Configure FastAPI
+
+• Create API endpoints
+
+• Configure request models
+
+• Configure response models
+
+• Create application settings
+
+Deliverables
+
+✓ Backend service running
+
+✓ Health endpoint
+
+✓ Status endpoint
+
+✓ Analyze endpoint skeleton
+
+=========================================================
+PHASE 03
+FRONTEND FOUNDATION
+=========================================================
+
+Objectives
+
+• Create HTML interface
+
+• Create CSS layout
+
+• Initialize Leaflet map
+
+• Add polygon drawing support
+
+• Create analysis panel
+
+Deliverables
+
+✓ Interactive map
+
+✓ Polygon creation
+
+✓ API connectivity
+
+=========================================================
+PHASE 04
+POLYGON VALIDATION
+=========================================================
+
+Objectives
+
+• Validate GeoJSON
+
+• Validate coordinates
+
+• Validate geometry
+
+• Generate polygon metadata
+
+Deliverables
+
+✓ Polygon validator
+
+✓ Error handling
+
+✓ Validation tests
+
+=========================================================
+PHASE 05
+DATA COLLECTION
+=========================================================
+
+Objectives
+
+• Implement Data Source Manager
+
+• Implement provider collectors
+
+• Retrieve open geospatial data
+
+• Validate provider responses
+
+Deliverables
+
+✓ Working collectors
+
+✓ Raw datasets
+
+✓ Provider status reporting
+
+=========================================================
+PHASE 06
+DATA STANDARDIZATION
+=========================================================
+
+Objectives
+
+• Normalize provider data
+
+• Standardize geometry
+
+• Normalize attributes
+
+• Create common data model
+
+Deliverables
+
+✓ Standardized datasets
+
+✓ Common object model
+
+=========================================================
+PHASE 07
+RULE ENGINE
+=========================================================
+
+Objectives
+
+• Implement Rule Engine
+
+• Implement category rule modules
+
+• Combine rule outputs
+
+• Generate structured analysis
+
+Deliverables
+
+✓ Rule execution
+
+✓ Analysis summary
+
+✓ Structured results
+
+=========================================================
+PHASE 08
+OUTPUT GENERATION
+=========================================================
+
+Objectives
+
+• Generate JSON response
+
+• Build frontend response model
+
+• Display results
+
+Deliverables
+
+✓ JSON output
+
+✓ Result panel
+
+✓ Processing summary
+
+=========================================================
+PHASE 09
+INTEGRATION
+=========================================================
+
+Objectives
+
+• Connect all modules
+
+• Execute complete workflow
+
+• Validate module communication
+
+Deliverables
+
+✓ End-to-end workflow
+
+✓ Stable execution
+
+=========================================================
+PHASE 10
+TESTING
+=========================================================
+
+Objectives
+
+• Functional testing
+
+• Integration testing
+
+• Error handling validation
+
+• Prototype demonstration testing
+
+Deliverables
+
+✓ Tested prototype
+
+✓ Verified workflow
+
+✓ Demonstration readiness
+
+=========================================================
+PHASE 11
+DEPLOYMENT
+=========================================================
+
+Objectives
+
+• Deploy backend to Render
+
+• Deploy frontend
+
+• Verify production environment
+
+Deliverables
+
+✓ Live prototype
+
+✓ Public demonstration URL
+
+=========================================================
+PHASE 12
+CLIENT DEMONSTRATION
+=========================================================
+
+Objectives
+
+• Demonstrate polygon analysis
+
+• Demonstrate data collection
+
+• Demonstrate structured output
+
+• Collect client feedback
+
+Deliverables
+
+✓ Client review
+
+✓ Feedback report
+
+✓ Prototype approval or revision plan
+
+=========================================================
+MILESTONES
+=========================================================
+
+Milestone 1
+
+Project Initialized
+
+---------------------------------------------------------
+
+Milestone 2
+
+Backend Operational
+
+---------------------------------------------------------
+
+Milestone 3
+
+Frontend Operational
+
+---------------------------------------------------------
+
+Milestone 4
+
+Data Collection Working
+
+---------------------------------------------------------
+
+Milestone 5
+
+Rule Engine Operational
+
+---------------------------------------------------------
+
+Milestone 6
+
+Complete Prototype Workflow
+
+---------------------------------------------------------
+
+Milestone 7
+
+Prototype Successfully Deployed
+
+=========================================================
+PROJECT SUCCESS CRITERIA
+=========================================================
+
+The development roadmap is successfully completed when
+
+✓ Every planned phase is implemented.
+
+✓ The prototype executes the complete workflow.
+
+✓ All modules communicate correctly.
+
+✓ Deployment succeeds on Render.
+
+✓ The client can successfully evaluate the prototype.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+19_Testing_Strategy.txt
+
+=========================================================
+END
+=========================================================

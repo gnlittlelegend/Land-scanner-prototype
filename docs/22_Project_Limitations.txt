@@ -1,0 +1,277 @@
+=========================================================
+DOCUMENT 22
+LAND SCANNER
+PROJECT LIMITATIONS
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the official limitations of the Land
+Scanner Prototype.
+
+The objective is to clearly distinguish prototype
+capabilities from future production capabilities and to
+manage project expectations during client demonstrations.
+
+=========================================================
+LIMITATION PRINCIPLES
+=========================================================
+
+The prototype is intended to
+
+• Validate technical feasibility
+
+• Demonstrate the overall workflow
+
+• Verify architecture
+
+• Validate data integration
+
+The prototype is NOT intended to be a production-ready
+system.
+
+=========================================================
+FUNCTIONAL LIMITATIONS
+=========================================================
+
+The prototype shall support
+
+• Single Polygon Analysis
+
+• Rule-Based Processing
+
+• Limited Open Data Providers
+
+• JSON Output
+
+• Simple Web Interface
+
+---------------------------------------------------------
+
+The prototype shall NOT support
+
+• Multiple simultaneous analyses
+
+• Background processing
+
+• Batch analysis
+
+• Scheduled analysis
+
+• Historical analysis
+
+=========================================================
+AI LIMITATIONS
+=========================================================
+
+Artificial Intelligence is intentionally excluded from the
+prototype.
+
+The prototype shall not perform
+
+• Object Detection
+
+• Image Classification
+
+• Deep Learning
+
+• Machine Learning
+
+• Predictive Analysis
+
+• Change Detection
+
+Future versions may introduce AI modules without changing
+the prototype architecture.
+
+=========================================================
+DATA LIMITATIONS
+=========================================================
+
+The prototype depends on publicly available geospatial
+datasets.
+
+Therefore
+
+• Data completeness cannot be guaranteed.
+
+• Data freshness depends on providers.
+
+• Spatial resolution varies by dataset.
+
+• Coverage varies by region.
+
+=========================================================
+USER INTERFACE LIMITATIONS
+=========================================================
+
+The interface is designed only for demonstration.
+
+The prototype shall provide
+
+• Basic Map
+
+• Polygon Drawing
+
+• Analysis Button
+
+• Result Panel
+
+Advanced visualization features are outside the prototype
+scope.
+
+=========================================================
+PERFORMANCE LIMITATIONS
+=========================================================
+
+The prototype is optimized for correctness and simplicity,
+not maximum performance.
+
+Large polygons or complex requests may increase processing
+time.
+
+=========================================================
+HOSTING LIMITATIONS
+=========================================================
+
+The prototype is hosted on Render.
+
+Possible limitations include
+
+• Cold Start
+
+• Memory Limits
+
+• CPU Limits
+
+• Request Timeout Limits
+
+These constraints are acceptable for prototype
+demonstrations.
+
+=========================================================
+DATABASE LIMITATIONS
+=========================================================
+
+No production database is required.
+
+Optional local storage (such as SQLite) may be used only if
+necessary for prototype functionality.
+
+=========================================================
+SECURITY LIMITATIONS
+=========================================================
+
+The prototype includes only basic security measures.
+
+Excluded features
+
+• Authentication
+
+• Authorization
+
+• User Roles
+
+• Audit Logs
+
+• Encryption Management
+
+• Advanced Security Monitoring
+
+=========================================================
+SCALABILITY LIMITATIONS
+=========================================================
+
+The prototype is not designed for
+
+• High Traffic
+
+• Enterprise Workloads
+
+• Multi-Region Deployment
+
+• High Availability
+
+=========================================================
+LEGAL LIMITATIONS
+=========================================================
+
+Prototype outputs are intended for demonstration and
+technical evaluation only.
+
+The prototype shall not be considered an official legal,
+surveying, cadastral, or regulatory information system.
+
+Users are responsible for verifying information with the
+appropriate authorities before making legal or financial
+decisions.
+
+=========================================================
+KNOWN ASSUMPTIONS
+=========================================================
+
+The prototype assumes
+
+• Internet connectivity is available.
+
+• Open data providers remain operational.
+
+• Polygon input is valid.
+
+• Supported datasets are sufficient for demonstration.
+
+=========================================================
+FUTURE ENHANCEMENTS
+=========================================================
+
+Future production versions may include
+
+• Artificial Intelligence
+
+• User Authentication
+
+• Production Database
+
+• Report Generation
+
+• Historical Analysis
+
+• Time-Series Analysis
+
+• Background Processing
+
+• Notification Services
+
+• Advanced GIS Analytics
+
+=========================================================
+LIMITATION ACCEPTANCE CRITERIA
+=========================================================
+
+The prototype limitations are acceptable when
+
+✓ Client understands the prototype scope.
+
+✓ Demonstration objectives are achieved.
+
+✓ Technical feasibility is validated.
+
+✓ Future expansion remains possible.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+23_Project_Assumptions.txt
+
+=========================================================
+END
+=========================================================

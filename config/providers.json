@@ -1,0 +1,52 @@
+{
+  "providers": [
+    {
+      "name": "administrative_boundaries",
+      "category": "Administrative",
+      "enabled": true,
+      "timeout": 30,
+      "retry_count": 3,
+      "collector": "collector_admin.py"
+    },
+    {
+      "name": "land_cover",
+      "category": "Land Cover",
+      "enabled": true,
+      "timeout": 30,
+      "retry_count": 3,
+      "collector": "collector_landcover.py"
+    },
+    {
+      "name": "buildings",
+      "category": "Buildings",
+      "enabled": true,
+      "timeout": 30,
+      "retry_count": 3,
+      "collector": "collector_buildings.py"
+    },
+    {
+      "name": "roads",
+      "category": "Transportation",
+      "enabled": true,
+      "timeout": 30,
+      "retry_count": 3,
+      "collector": "collector_roads.py"
+    },
+    {
+      "name": "water_bodies",
+      "category": "Hydrology",
+      "enabled": true,
+      "timeout": 30,
+      "retry_count": 3,
+      "collector": "collector_water.py"
+    },
+    {
+      "name": "elevation",
+      "category": "Terrain",
+      "enabled": true,
+      "timeout": 30,
+      "retry_count": 3,
+      "collector": "collector_elevation.py"
+    }
+  ]
+}

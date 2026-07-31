@@ -1,0 +1,416 @@
+=========================================================
+DOCUMENT 28
+LAND SCANNER
+API REQUEST & RESPONSE SCHEMA
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the official JSON request and response
+schemas used by the Land Scanner Prototype.
+
+The objective is to establish a consistent communication
+format between the Frontend and Backend.
+
+All API communication shall use JSON.
+
+=========================================================
+SCHEMA DESIGN PRINCIPLES
+=========================================================
+
+• JSON Only
+
+• Predictable Structure
+
+• Consistent Field Names
+
+• Explicit Status Values
+
+• Backward Compatible
+
+=========================================================
+REQUEST SCHEMA
+=========================================================
+
+POST
+
+/analyze
+
+Request Object
+
+---------------------------------------------------------
+
+request_id
+
+Type
+
+String
+
+Required
+
+No
+
+Description
+
+Optional client request identifier.
+
+---------------------------------------------------------
+
+client_version
+
+Type
+
+String
+
+Required
+
+No
+
+Description
+
+Frontend version identifier.
+
+---------------------------------------------------------
+
+polygon
+
+Type
+
+GeoJSON Polygon
+
+Required
+
+Yes
+
+Description
+
+Polygon defining the analysis area.
+
+=========================================================
+REQUEST VALIDATION
+=========================================================
+
+The backend shall verify
+
+• Valid JSON
+
+• Valid GeoJSON
+
+• Polygon Geometry
+
+• Polygon Coordinate Count
+
+• Polygon Closure
+
+• Polygon Area Limits
+
+Invalid requests shall return an error response.
+
+=========================================================
+SUCCESS RESPONSE
+=========================================================
+
+Response Object
+
+---------------------------------------------------------
+
+status
+
+Type
+
+String
+
+Values
+
+Success
+
+---------------------------------------------------------
+
+request_id
+
+Type
+
+String
+
+---------------------------------------------------------
+
+processing_time
+
+Type
+
+Number
+
+Description
+
+Processing duration in seconds.
+
+---------------------------------------------------------
+
+analysis
+
+Type
+
+Object
+
+Contains summarized land information.
+
+---------------------------------------------------------
+
+providers
+
+Type
+
+Array
+
+Contains provider execution summaries.
+
+---------------------------------------------------------
+
+rules
+
+Type
+
+Array
+
+Contains rule execution summaries.
+
+---------------------------------------------------------
+
+metadata
+
+Type
+
+Object
+
+Contains processing metadata.
+
+=========================================================
+ANALYSIS OBJECT
+=========================================================
+
+Fields
+
+• Administrative Information
+
+• Land Cover Summary
+
+• Building Summary
+
+• Road Summary
+
+• Water Summary
+
+• Elevation Summary
+
+=========================================================
+PROVIDER SUMMARY
+=========================================================
+
+Each provider entry shall include
+
+• Provider Name
+
+• Category
+
+• Status
+
+• Processing Time
+
+=========================================================
+RULE SUMMARY
+=========================================================
+
+Each rule entry shall include
+
+• Rule ID
+
+• Rule Name
+
+• Status
+
+• Notes
+
+=========================================================
+METADATA OBJECT
+=========================================================
+
+Suggested Fields
+
+• Prototype Version
+
+• Timestamp
+
+• Data Sources Used
+
+• Processing Status
+
+=========================================================
+ERROR RESPONSE
+=========================================================
+
+Error Object
+
+---------------------------------------------------------
+
+status
+
+Values
+
+Failed
+
+---------------------------------------------------------
+
+error_code
+
+---------------------------------------------------------
+
+error_message
+
+---------------------------------------------------------
+
+processing_stage
+
+---------------------------------------------------------
+
+request_id
+
+(Optional)
+
+=========================================================
+STATUS VALUES
+=========================================================
+
+API Status
+
+• Success
+
+• Failed
+
+---------------------------------------------------------
+
+Rule Status
+
+• Success
+
+• Failed
+
+• Skipped
+
+• Insufficient Data
+
+---------------------------------------------------------
+
+Provider Status
+
+• Success
+
+• Failed
+
+• Timeout
+
+• Disabled
+
+=========================================================
+JSON NAMING CONVENTION
+=========================================================
+
+Recommended
+
+snake_case
+
+Examples
+
+request_id
+
+processing_time
+
+land_cover
+
+building_summary
+
+=========================================================
+RESPONSE SIZE
+=========================================================
+
+The prototype shall return only summarized information.
+
+The API shall not return
+
+• Raw Provider Responses
+
+• Large Geospatial Files
+
+• Complete Datasets
+
+=========================================================
+BACKWARD COMPATIBILITY
+=========================================================
+
+Future API versions may add new optional fields.
+
+Existing field names shall remain unchanged whenever
+possible.
+
+=========================================================
+API DESIGN RULES
+=========================================================
+
+Rule 1
+
+Every response contains a status field.
+
+---------------------------------------------------------
+
+Rule 2
+
+Every response is valid JSON.
+
+---------------------------------------------------------
+
+Rule 3
+
+Errors use a standardized structure.
+
+---------------------------------------------------------
+
+Rule 4
+
+Only summarized information is returned.
+
+---------------------------------------------------------
+
+Rule 5
+
+Internal processing details are never exposed.
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+✓ Request schema is well defined.
+
+✓ Response schema is consistent.
+
+✓ Error responses follow one format.
+
+✓ Frontend can parse every response.
+
+✓ Future fields can be added without breaking the API.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+29_UI_UX_SPECIFICATION.txt
+
+=========================================================
+END
+=========================================================

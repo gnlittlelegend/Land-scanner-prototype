@@ -1,0 +1,398 @@
+=========================================================
+DOCUMENT 10
+LAND SCANNER
+DATA FLOW ARCHITECTURE
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines how data moves through the prototype.
+
+The objective is to ensure that every request follows a
+single, predictable workflow from user input to final output.
+
+The data flow must remain simple, modular, and independent
+of individual data providers.
+
+=========================================================
+PRIMARY DATA FLOW
+=========================================================
+
+User
+
+↓
+
+Frontend
+
+↓
+
+Polygon Validation
+
+↓
+
+Analysis Request
+
+↓
+
+Backend API
+
+↓
+
+Data Source Manager
+
+↓
+
+Data Collectors
+
+↓
+
+Data Standardization
+
+↓
+
+Rule Engine
+
+↓
+
+Output Generator
+
+↓
+
+JSON Response
+
+↓
+
+Frontend Result Panel
+
+=========================================================
+STEP 01
+USER INPUT
+=========================================================
+
+Input Type
+
+• Polygon (GeoJSON)
+
+Responsibilities
+
+• Receive polygon
+
+• Verify required fields
+
+• Send request to backend
+
+Output
+
+Validated Request
+
+=========================================================
+STEP 02
+POLYGON VALIDATION
+=========================================================
+
+Responsibilities
+
+• Validate GeoJSON structure
+
+• Validate geometry
+
+• Check coordinate values
+
+• Reject invalid polygons
+
+Output
+
+Validated Polygon Object
+
+Failure
+
+Return validation error
+
+=========================================================
+STEP 03
+DATA SOURCE MANAGER
+=========================================================
+
+Responsibilities
+
+• Read enabled providers
+
+• Execute collectors
+
+• Manage execution order
+
+• Handle provider failures
+
+Input
+
+Validated Polygon
+
+Output
+
+Collected Raw Data
+
+=========================================================
+STEP 04
+DATA COLLECTORS
+=========================================================
+
+Each collector is responsible for only one provider.
+
+Collector Responsibilities
+
+• Receive polygon
+
+• Query provider
+
+• Download or request data
+
+• Return raw dataset
+
+Collectors never communicate with each other.
+
+=========================================================
+STEP 05
+DATA STANDARDIZATION
+=========================================================
+
+Purpose
+
+Convert every provider response into one common internal
+format.
+
+Responsibilities
+
+• Normalize field names
+
+• Normalize coordinate systems
+
+• Normalize data structure
+
+Output
+
+Standardized Dataset
+
+=========================================================
+STEP 06
+RULE ENGINE
+=========================================================
+
+Purpose
+
+Transform standardized data into meaningful land
+information.
+
+Responsibilities
+
+• Execute predefined rules
+
+• Combine information from multiple datasets
+
+• Produce structured results
+
+AI is not used.
+
+=========================================================
+STEP 07
+OUTPUT GENERATOR
+=========================================================
+
+Responsibilities
+
+• Generate JSON response
+
+• Prepare frontend information
+
+• Include processing status
+
+• Include provider status (optional)
+
+Output
+
+Prototype Result
+
+=========================================================
+STEP 08
+FRONTEND
+=========================================================
+
+Responsibilities
+
+• Receive JSON
+
+• Display land information
+
+• Display polygon
+
+• Display errors when required
+
+=========================================================
+DATA FLOW RULES
+=========================================================
+
+Rule 1
+
+Data always moves forward.
+
+---------------------------------------------------------
+
+Rule 2
+
+No module may bypass another module.
+
+---------------------------------------------------------
+
+Rule 3
+
+Raw provider data must never reach the frontend.
+
+---------------------------------------------------------
+
+Rule 4
+
+Only standardized data may enter the Rule Engine.
+
+---------------------------------------------------------
+
+Rule 5
+
+Only processed information may be returned to the user.
+
+=========================================================
+FAILURE FLOW
+=========================================================
+
+Invalid Polygon
+
+↓
+
+Reject Request
+
+↓
+
+Return Error
+
+---------------------------------------------------------
+
+Collector Failure
+
+↓
+
+Log Failure
+
+↓
+
+Continue with available providers when possible
+
+↓
+
+Return partial result if applicable
+
+---------------------------------------------------------
+
+Unexpected Error
+
+↓
+
+Safe Error Handling
+
+↓
+
+Readable Response
+
+=========================================================
+PERFORMANCE FLOW
+=========================================================
+
+Target Workflow
+
+Polygon
+
+↓
+
+Collect Required Data Only
+
+↓
+
+Process Required Data Only
+
+↓
+
+Return Result
+
+The prototype should avoid unnecessary requests and
+unnecessary processing.
+
+=========================================================
+DATA LIFECYCLE
+=========================================================
+
+Request Received
+
+↓
+
+Temporary Processing
+
+↓
+
+Result Generated
+
+↓
+
+Response Returned
+
+↓
+
+Temporary Data Released
+
+No long-term storage is required for the prototype.
+
+=========================================================
+ARCHITECTURE PRINCIPLES
+=========================================================
+
+• Stateless Processing
+
+• Single Direction Data Flow
+
+• Modular Execution
+
+• Provider Independence
+
+• Rule-Based Processing
+
+• Low Complexity
+
+=========================================================
+DATA FLOW ACCEPTANCE CRITERIA
+=========================================================
+
+✓ Polygon reaches backend successfully.
+
+✓ Data collectors execute correctly.
+
+✓ Standardization completes successfully.
+
+✓ Rule Engine receives standardized data only.
+
+✓ Output Generator creates valid JSON.
+
+✓ Frontend displays processed information correctly.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+11_Data_Source_Research.txt
+
+=========================================================
+END
+=========================================================

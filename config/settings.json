@@ -1,0 +1,8 @@
+{
+  "app_env": "development",
+  "app_version": "1.0.0",
+  "log_level": "INFO",
+  "request_timeout": 30,
+  "max_polygon_area": 10000000,
+  "enabled_providers": ["administrative_boundaries", "land_cover", "buildings", "roads", "water_bodies", "elevation"]
+}

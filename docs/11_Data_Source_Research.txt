@@ -1,0 +1,329 @@
+=========================================================
+DOCUMENT 11
+LAND SCANNER
+DATA SOURCE RESEARCH
+Version : 1.0
+Status  : Working Document
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the research methodology for selecting
+open geospatial data sources for the prototype.
+
+The objective is NOT to use every available dataset.
+
+The objective is to identify the smallest set of reliable,
+open, and technically feasible data sources required for the
+prototype.
+
+=========================================================
+RESEARCH OBJECTIVES
+=========================================================
+
+The research shall identify
+
+• Available open geospatial data
+
+• Data accessibility
+
+• Integration difficulty
+
+• Polygon support
+
+• Data quality
+
+• Update frequency
+
+• Suitability for prototype development
+
+=========================================================
+RESEARCH PRINCIPLES
+=========================================================
+
+Prototype First
+
+Open Data Preferred
+
+Reliable Before Advanced
+
+Simple Integration Preferred
+
+Minimum Required Data
+
+Future Expansion Supported
+
+=========================================================
+TARGET OUTPUT
+=========================================================
+
+The research shall produce
+
+• Complete list of candidate providers
+
+• Technical evaluation
+
+• Feasibility assessment
+
+• Prototype recommendation
+
+• Future roadmap
+
+=========================================================
+TARGET DATA CATEGORIES
+=========================================================
+
+Priority 1
+
+Core Prototype
+
+• Administrative Boundaries
+
+• Land Cover
+
+• Buildings
+
+• Roads
+
+• Water Bodies
+
+• Elevation (DEM)
+
+---------------------------------------------------------
+
+Priority 2
+
+Optional Prototype
+
+• Vegetation
+
+• Weather
+
+• Rainfall
+
+---------------------------------------------------------
+
+Priority 3
+
+Future Product
+
+• Soil
+
+• Geology
+
+• Flood
+
+• Night Lights
+
+• Population
+
+• Land Surface Temperature
+
+• Air Quality
+
+• Construction Detection
+
+• Vehicle Detection
+
+• Change Detection
+
+=========================================================
+RESEARCH QUESTIONS
+=========================================================
+
+For every data source answer
+
+RQ-001
+
+What information is available?
+
+---------------------------------------------------------
+
+RQ-002
+
+Is the data openly accessible?
+
+---------------------------------------------------------
+
+RQ-003
+
+Does the provider support polygon-based queries?
+
+---------------------------------------------------------
+
+RQ-004
+
+Is an API available?
+
+---------------------------------------------------------
+
+RQ-005
+
+Can the data be downloaded?
+
+---------------------------------------------------------
+
+RQ-006
+
+How frequently is the data updated?
+
+---------------------------------------------------------
+
+RQ-007
+
+What is the spatial resolution?
+
+---------------------------------------------------------
+
+RQ-008
+
+Can Python integrate with the provider easily?
+
+---------------------------------------------------------
+
+RQ-009
+
+Is the provider reliable enough for demonstration?
+
+---------------------------------------------------------
+
+RQ-010
+
+Should the provider be included in the prototype?
+
+=========================================================
+RESEARCH EVALUATION CRITERIA
+=========================================================
+
+Every provider shall be evaluated using
+
+Accessibility
+
+Reliability
+
+Ease of Integration
+
+Documentation Quality
+
+Polygon Support
+
+Open License
+
+Update Frequency
+
+Prototype Suitability
+
+=========================================================
+RESEARCH CLASSIFICATION
+=========================================================
+
+Class A
+
+Required
+
+Must be included in prototype.
+
+---------------------------------------------------------
+
+Class B
+
+Recommended
+
+Useful but optional.
+
+---------------------------------------------------------
+
+Class C
+
+Future
+
+Do not implement in prototype.
+
+=========================================================
+PROVIDER DOCUMENTATION
+=========================================================
+
+For every provider record
+
+• Provider Name
+
+• Dataset Name
+
+• Data Category
+
+• Coverage
+
+• Resolution
+
+• Update Frequency
+
+• API Availability
+
+• Download Availability
+
+• Authentication Requirement
+
+• License
+
+• Data Format
+
+• Coordinate System
+
+• Integration Difficulty
+
+• Known Limitations
+
+• Prototype Recommendation
+
+=========================================================
+SELECTION PRINCIPLES
+=========================================================
+
+Select providers that
+
+• Are openly accessible
+
+• Have stable documentation
+
+• Support Python integration
+
+• Require minimal preprocessing
+
+• Work reliably with polygon-based analysis
+
+Avoid providers that
+
+• Require expensive licensing
+
+• Require excessive preprocessing
+
+• Have unstable services
+
+• Do not contribute directly to prototype goals
+
+=========================================================
+EXPECTED RESULT
+=========================================================
+
+At the end of the research, a final list of approximately
+5–6 highly suitable data sources shall be selected for the
+prototype.
+
+These providers will become the official data sources used
+during prototype development.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+12_Data_Source_Comparison.txt
+
+=========================================================
+END
+=========================================================

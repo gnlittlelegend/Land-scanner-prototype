@@ -1,0 +1,445 @@
+=========================================================
+DOCUMENT 25
+LAND SCANNER
+DATA SOURCE SPECIFICATION
+Version : 1.0
+Status  : Approved
+=========================================================
+
+PROJECT
+
+Land Scanner Prototype
+
+=========================================================
+PURPOSE
+=========================================================
+
+This document defines the official data sources approved for
+the Land Scanner Prototype.
+
+The objective is to establish a standardized specification
+for every external dataset used by the prototype.
+
+Only data sources that satisfy the prototype requirements
+shall be integrated.
+
+=========================================================
+DATA SOURCE PRINCIPLES
+=========================================================
+
+• Open Data Preferred
+
+• Provider Independent
+
+• Polygon Compatible
+
+• Stable Documentation
+
+• Easy Python Integration
+
+• Low Operational Cost
+
+=========================================================
+DATA SOURCE CATEGORIES
+=========================================================
+
+Category 01
+
+Administrative Data
+
+---------------------------------------------------------
+
+Category 02
+
+Land Cover
+
+---------------------------------------------------------
+
+Category 03
+
+Buildings
+
+---------------------------------------------------------
+
+Category 04
+
+Transportation
+
+---------------------------------------------------------
+
+Category 05
+
+Water Bodies
+
+---------------------------------------------------------
+
+Category 06
+
+Elevation
+
+=========================================================
+STANDARD DATA SOURCE TEMPLATE
+=========================================================
+
+Every provider shall be documented using the following
+structure.
+
+---------------------------------------------------------
+
+Provider Name
+
+---------------------------------------------------------
+
+Organization
+
+---------------------------------------------------------
+
+Dataset
+
+---------------------------------------------------------
+
+Category
+
+---------------------------------------------------------
+
+Coverage
+
+---------------------------------------------------------
+
+Access Method
+
+API
+
+Download
+
+Web Service
+
+---------------------------------------------------------
+
+Authentication
+
+Required
+
+Optional
+
+None
+
+---------------------------------------------------------
+
+Polygon Support
+
+Yes
+
+No
+
+Partial
+
+---------------------------------------------------------
+
+Supported Formats
+
+---------------------------------------------------------
+
+Coordinate System
+
+---------------------------------------------------------
+
+Update Frequency
+
+---------------------------------------------------------
+
+Spatial Resolution
+
+---------------------------------------------------------
+
+License
+
+---------------------------------------------------------
+
+Integration Priority
+
+Required
+
+Optional
+
+Future
+
+---------------------------------------------------------
+
+Collector Name
+
+---------------------------------------------------------
+
+Known Limitations
+
+=========================================================
+OFFICIAL PROTOTYPE DATA SOURCES
+=========================================================
+
+SOURCE 01
+
+Administrative Boundaries
+
+Category
+
+Administrative Data
+
+Purpose
+
+Identify administrative regions associated with the analysis
+polygon.
+
+Prototype Priority
+
+Required
+
+---------------------------------------------------------
+
+SOURCE 02
+
+Land Cover
+
+Category
+
+Land Cover
+
+Purpose
+
+Identify major land surface categories such as vegetation,
+urban areas, water, and bare land.
+
+Prototype Priority
+
+Required
+
+---------------------------------------------------------
+
+SOURCE 03
+
+Buildings
+
+Category
+
+Infrastructure
+
+Purpose
+
+Determine whether mapped buildings exist within the analysis
+polygon.
+
+Prototype Priority
+
+Required
+
+---------------------------------------------------------
+
+SOURCE 04
+
+Road Network
+
+Category
+
+Transportation
+
+Purpose
+
+Identify roads intersecting or located inside the analysis
+polygon.
+
+Prototype Priority
+
+Required
+
+---------------------------------------------------------
+
+SOURCE 05
+
+Water Bodies
+
+Category
+
+Hydrology
+
+Purpose
+
+Identify rivers, lakes, reservoirs, canals, and other mapped
+water features.
+
+Prototype Priority
+
+Required
+
+---------------------------------------------------------
+
+SOURCE 06
+
+Elevation
+
+Category
+
+Terrain
+
+Purpose
+
+Determine terrain elevation characteristics for the analysis
+polygon.
+
+Prototype Priority
+
+Required
+
+=========================================================
+OPTIONAL DATA SOURCES
+=========================================================
+
+These datasets may be added only if they improve prototype
+demonstration without significantly increasing complexity.
+
+• Vegetation Index
+
+• Rainfall
+
+• Weather
+
+• Soil
+
+• Geology
+
+Prototype Priority
+
+Optional
+
+=========================================================
+FUTURE DATA SOURCES
+=========================================================
+
+The following datasets are reserved for future production
+development.
+
+• Change Detection
+
+• Land Surface Temperature
+
+• Population
+
+• Night-Time Lights
+
+• Flood Hazard
+
+• Air Quality
+
+• Construction Monitoring
+
+• Vehicle Detection
+
+• AI Classification Results
+
+=========================================================
+DATA SOURCE SELECTION RULES
+=========================================================
+
+Rule 1
+
+Every data source shall satisfy a defined project
+requirement.
+
+---------------------------------------------------------
+
+Rule 2
+
+Every provider shall have an independent collector.
+
+---------------------------------------------------------
+
+Rule 3
+
+Every dataset shall pass through the Data Standardizer
+before entering the Rule Engine.
+
+---------------------------------------------------------
+
+Rule 4
+
+Provider-specific formats shall never be exposed outside the
+collector.
+
+---------------------------------------------------------
+
+Rule 5
+
+The frontend shall never communicate directly with external
+providers.
+
+=========================================================
+DATA QUALITY REQUIREMENTS
+=========================================================
+
+Every selected data source should provide
+
+• Reliable Coverage
+
+• Stable Updates
+
+• Documented Metadata
+
+• Consistent Geometry
+
+• Standard Coordinate System
+
+If multiple providers exist for the same category, the most
+reliable provider shall be preferred for the prototype.
+
+=========================================================
+PROTOTYPE DATA FLOW
+=========================================================
+
+Polygon
+
+↓
+
+Collector
+
+↓
+
+Raw Dataset
+
+↓
+
+Standardizer
+
+↓
+
+Common Data Model
+
+↓
+
+Rule Engine
+
+↓
+
+Structured Output
+
+=========================================================
+ACCEPTANCE CRITERIA
+=========================================================
+
+✓ Every required category has an approved data source.
+
+✓ Every provider can be integrated independently.
+
+✓ All datasets support standardized processing.
+
+✓ Prototype requirements are fully covered.
+
+✓ Future providers can be added without changing the
+existing architecture.
+
+=========================================================
+NEXT DOCUMENT
+=========================================================
+
+26_Provider_Integration_Design.txt
+
+=========================================================
+END
+=========================================================
