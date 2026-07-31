@@ -1,62 +1,357 @@
+/* Global styles */
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     padding: 0;
-    font-family: Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
 }
 
 .container {
     max-width: 1200px;
     margin: 0 auto;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Header styling */
 header {
-    background: #333;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 1rem;
+    padding: 1.5rem;
     text-align: center;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-#map {
+header h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+header .subtitle {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Main content area */
+.main-content {
+    padding: 1rem;
+}
+
+/* Map container */
+.map-container {
     height: 500px;
     width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    background-color: #f9f9f9;
 }
 
+/* Control panel styling */
 .control-panel {
     padding: 1rem;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    border: 1px solid #ddd;
     display: flex;
-    gap: 10px;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
-button {
-    padding: 10px 20px;
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-weight: 500;
+    color: #555;
+}
+
+#geojson-input {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#geojson-input:hover {
+    border-color: #667eea;
+}
+
+/* Button styling */
+.btn {
+    padding: 0.6rem 1.2rem;
     cursor: pointer;
     border: none;
     border-radius: 4px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    white-space: nowrap;
 }
 
-#analyze-btn {
-    background: #4CAF50;
+.btn-primary {
+    background: #667eea;
     color: white;
 }
 
-#clear-polygon {
+.btn-primary:hover {
+    background: #5568d3;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(1px);
+}
+
+.btn-danger {
     background: #f44336;
     color: white;
 }
 
-#result-panel {
+.btn-danger:hover {
+    background: #da190b;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.4);
+}
+
+.btn-danger:active {
+    transform: translateY(1px);
+}
+
+/* Results panel styling */
+.result-panel {
+    padding: 1.5rem;
+    background-color: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 4px;
+    margin-top: 1.5rem;
+}
+
+.result-panel h2 {
+    margin-top: 0;
+    color: #0369a1;
+    border-bottom: 2px solid #0369a1;
+    padding-bottom: 0.5rem;
+}
+
+.results-content {
+    background-color: white;
     padding: 1rem;
-    background: #f5f5f5;
+    border-radius: 4px;
     margin-top: 1rem;
 }
 
-#error-panel {
-    padding: 1rem;
-    background: #ffebee;
-    color: #c62828;
+.results-content h3 {
     margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+    border-left: 3px solid #667eea;
+    padding-left: 0.5rem;
 }
 
+.results-content p {
+    margin: 0.5rem 0;
+    line-height: 1.5;
+}
+
+/* Error panel styling */
+.error-panel {
+    padding: 1.5rem;
+    background-color: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+    margin-top: 1.5rem;
+}
+
+.error-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.error-header h3 {
+    margin: 0;
+    color: #dc2626;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #dc2626;
+    padding: 0;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: #991b1b;
+}
+
+.error-content {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 4px;
+    color: #991b1b;
+    line-height: 1.5;
+}
+
+/* Loading indicator */
+.loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-indicator p {
+    margin: 0;
+    color: #666;
+    font-weight: 500;
+}
+
+/* Utility classes */
 .hidden {
-    display: none;
+    display: none !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .map-container {
+        height: 350px;
+    }
+
+    .control-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .control-group {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .result-panel,
+    .error-panel {
+        padding: 1rem;
+    }
+}
+
+/* Status badge styling */
+.status-badge {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.status-success {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-partial {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-error,
+.status-failed {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-available {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.status-unavailable {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* Result categories styling */
+.results-content h4 {
+    margin-top: 1.2rem;
+    margin-bottom: 0.5rem;
+    color: #667eea;
+    border-left: 3px solid #667eea;
+    padding-left: 0.5rem;
+}
+
+.results-content ul {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+
+/* Leaflet adjustments */
+.leaflet-container {
+    font-family: inherit;
+}
+
+.leaflet-control-zoom {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-control-zoom a {
+    background-color: white;
+    border: 1px solid #ddd;
+    color: #667eea;
+}
+
+.leaflet-control-draw {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-draw-actions a {
+    background-color: #667eea;
+}
+
+.leaflet-draw-actions a:hover {
+    background-color: #5568d3;
 }
