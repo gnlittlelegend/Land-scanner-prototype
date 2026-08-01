@@ -4,6 +4,7 @@ Manages collector execution, aggregates results, and handles provider failures.
 """
 
 import asyncio
+import importlib
 import logging
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
@@ -44,6 +45,47 @@ class DataSourceManager:
         self.config_manager = config_manager
         self.collectors: Dict[str, DataCollector] = {}
         self.provider_status: Dict[str, Dict] = {}
+        self._auto_register_collectors()
+
+    def _auto_register_collectors(self) -> None:
+        """
+        Auto-register all available collectors based on configuration.
+        
+        Imports collector classes dynamically and registers instances
+        for all enabled providers.
+        """
+        collector_module_map = {
+            "osm_buildings": "backend.collectors.osm_buildings:OSMBuildingsCollector",
+            "admin_boundaries": "backend.collectors.admin_boundaries:AdminBoundariesCollector",
+            "land_cover": "backend.collectors.land_cover:LandCoverCollector",
+            "osm_roads": "backend.collectors.roads:RoadNetworkCollector",
+            "osm_water": "backend.collectors.water:WaterBodiesCollector",
+            "elevation": "backend.collectors.elevation:ElevationCollector",
+        }
+
+        enabled_providers = self.config_manager.get_enabled_providers()
+        for provider in enabled_providers:
+            provider_name = provider.get("name")
+            if not provider_name:
+                continue
+
+            class_path = collector_module_map.get(provider_name)
+            if not class_path:
+                logger.warning(f"No collector mapping found for provider: {provider_name}")
+                continue
+
+            try:
+                module_name, class_name = class_path.rsplit(":", 1)
+                module = importlib.import_module(module_name)
+                collector_class = getattr(module, class_name)
+                timeout = provider.get("timeout_seconds", 30)
+                collector = collector_class(timeout_seconds=timeout)
+                self.register_collector(collector)
+            except Exception as e:
+                logger.error(
+                    f"Failed to register collector for {provider_name}: {str(e)}",
+                    exc_info=True
+                )
 
     def register_collector(self, collector: DataCollector) -> None:
         """

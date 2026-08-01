@@ -22,7 +22,8 @@ from backend.models import (
     Polygon as PolygonModel,
     ErrorInfo,
     ModuleStatus,
-    DataCategory
+    DataCategory,
+    AnalysisRequest
 )
 from backend.models.schemas import RuleResult, StandardizedDataset
 from backend.services import ConfigManager
@@ -144,7 +145,7 @@ async def error_handler_middleware(request: Request, call_next):
 
 
 @app.post("/analyze")
-async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
+async def analyze_polygon(body: AnalysisRequest) -> AnalysisResponse:
     """
     Analyze a geographic polygon.
     
@@ -161,11 +162,12 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
     6. Output generation (compile results)
     
     Args:
-        request: Dictionary with 'polygon' key containing GeoJSON
+        body: AnalysisRequest with validated GeoJSON polygon
         
     Returns:
         AnalysisResponse with analysis results or error information
     """
+    request = {"polygon": body.polygon}
     start_time = time.time()
     request_id = f"req_{int(time.time() * 1000)}"
     
@@ -218,11 +220,8 @@ async def analyze_polygon(request: Dict[str, Any]) -> AnalysisResponse:
         
         try:
             data_source_manager = DataSourceManager(config)
-            collection_result = data_source_manager.collect(validated_polygon)
-            
-            collected_datasets = collection_result.get("datasets", [])
-            provider_statuses = collection_result.get("provider_status", {})
-            collection_status = collection_result.get("status", ProcessingStatus.FAILED)
+            collected_datasets, provider_statuses = await data_source_manager.collect_async(validated_polygon)
+            collection_status = ProcessingStatus.SUCCESS if collected_datasets else ProcessingStatus.FAILED
             
             module_statuses["data_collection"] = collection_status
             

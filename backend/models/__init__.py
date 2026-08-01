@@ -13,6 +13,7 @@ from backend.models.schemas import (
     ProviderStatus,
     ProcessingStatus,
     DataCategory,
+    AnalysisRequest,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "ProviderStatus",
     "ProcessingStatus",
     "DataCategory",
+    "AnalysisRequest",
 ]
