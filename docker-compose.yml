@@ -4,28 +4,9 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
       - DEBUG=false
-    # In production, you'd set environment variables from .env or secrets
-    # For now, using defaults from config
-    
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
-    environment:
-      # These would be used if we made nginx.conf template-based
-      # For now, hardcoded in nginx.conf
-      - BACKEND_HOST=backend
-      - BACKEND_PORT=8000
-
-# Optional: volumes for development
-# volumes:
-#   postgres_data:
+    # Backend serves both API and static frontend files
