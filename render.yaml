@@ -1,17 +1,15 @@
 services:
-   # Force Render to use Docker (not Python buildpack)
+   # Single Docker service: Backend serves both API and static frontend files
    - type: web
      name: ls-backend
      env: docker
      plan: free
      region: oregon
      branch: main
-     dockerfilePath: ./Dockerfile.backend
+     dockerfilePath: ./Dockerfile
      autoDeploy: true
      healthCheckPath: /health
      envVars:
-       - key: PYTHON_VERSION
-         value: 3.11
        - key: LOG_LEVEL
          value: info
        

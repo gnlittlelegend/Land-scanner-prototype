@@ -203,7 +203,7 @@ async function analyzePolygon() {
     
     try {
         // Send analysis request to backend
-        const response = await fetch(`${API_BASE}/api/analyze`, {
+        const response = await fetch(`${API_BASE}/analyze`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
