@@ -3,8 +3,8 @@
  * Handles polygon input, analysis requests, and results display
  */
 
-// Configuration - Backend and frontend served from same domain
-const API_BASE = window.location.origin;
+// Configuration - Frontend (Static Site) calls backend API
+const API_BASE = "https://land-scanner-prototype-backend.onrender.com";
 const API_TIMEOUT = 60000; // 60 seconds
 
 // Global state
@@ -61,7 +61,7 @@ function initializeMap() {
         const layer = e.layer;
         window.drawnItems.clearLayers();
         window.drawnItems.addLayer(layer);
-        currentPolygon = layer.toGeoJSON();
+        currentPolygon = layer.toGeoJSON().geometry;
         hideError();
     });
     
@@ -155,8 +155,8 @@ function handleGeoJSONUpload(event) {
             const layer = L.geoJSON(feature);
             window.drawnItems.addLayer(layer);
             
-            // Store the polygon
-            currentPolygon = feature;
+            // Store the polygon geometry (not the Feature wrapper)
+            currentPolygon = feature.geometry || feature;
             
             // Fit map to bounds
             const bounds = L.geoJSON(feature).getBounds();

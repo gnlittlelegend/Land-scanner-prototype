@@ -7,7 +7,6 @@ using rule-based processing.
 """
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Dict, Any, List
@@ -511,11 +510,6 @@ async def get_status() -> Dict[str, Any]:
         "provider_count": len(enabled_providers),
         "debug_mode": config.is_debug_mode()
     }
-
-
-frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 
 if __name__ == "__main__":
