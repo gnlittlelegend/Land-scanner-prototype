@@ -1,18 +1,19 @@
 services:
-  - type: web
-    name: ls-backend
-    env: docker
-    plan: free
-    region: oregon
-    branch: main
-    dockerfilePath: ./Dockerfile.backend
-    autoDeploy: true
-    healthCheckPath: /health
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
-      - key: LOG_LEVEL
-        value: info
+   # Force Render to use Docker (not Python buildpack)
+   - type: web
+     name: ls-backend
+     env: docker
+     plan: free
+     region: oregon
+     branch: main
+     dockerfilePath: ./Dockerfile.backend
+     autoDeploy: true
+     healthCheckPath: /health
+     envVars:
+       - key: PYTHON_VERSION
+         value: 3.11
+       - key: LOG_LEVEL
+         value: info
        
   - type: web
     name: ls-frontend
