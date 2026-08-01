@@ -1,17 +1,35 @@
 services:
   - type: web
-    name: land-scanner-prototype
+    name: ls-backend
     env: docker
     plan: free
     region: oregon
     branch: main
-    buildCommand: ""
-    startCommand: ""
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: ./Dockerfile.backend
+    autoDeploy: true
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
       - key: LOG_LEVEL
         value: info
-    healthCheckPath: /health
+       
+  - type: web
+    name: ls-frontend
+    env: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile.frontend
     autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: ls-backend
+          property: host
+      - key: BACKEND_PORT
+        value: "8000"
+    # Note: For Docker services on Render, inter-service communication 
+    # uses the service name as hostname. The frontend nginx.conf 
+    # should proxy to http://ls-backend:8000/

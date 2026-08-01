@@ -1,7 +1,12 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -15,9 +20,34 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a temporary
+#  directory before injection.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
 .env
 .venv
 env/
@@ -25,22 +55,281 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-logs/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Composer .tag files
+*.tag
+
+# Swift build artifacts
+*.swiftmodule
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.yaml
+
+# pyenv
+.python-version
+
+# pipenv
+#   According to pypa.io/pipenv/ is not a native windows
+#   file but it is worth weighing in about it.
+#   https://github.com/pypa/pipenv
+# !/app/.env
+
+# Poetry
+#   Similar to above, avoid the specifics of the tool on the OS.
+#   https://python-poetry.org/
+# !/app/.env
+
+# pdm
+#   Similar to above, avoid the specifics of the tool on the OS.
+#   https://pdm.fming.dev/
+#   .pdm.toml
+
+# Tools
+#   Versions
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS
+#   Windows
+Thumbs.db
+Thumbs.db
+#   macOS
+.DS_Store
+#   Linux
+*~
+
+# Logs
+logs
 *.log
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*~
+*.bak
+*.tmp
+
+# Docker
+docker-compose.*.yml
+docker-compose.override.yml
+
+# Misc
+.cache
+nb-*/
+
+# Jupyter
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.yaml
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Testing
 coverage.xml
 *.cover
-*.py,cover
 .hypothesis/
-.pytest/.cache/
-cover/
-*.mo
-*.pot
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-media/
+.pytest_cache/
+
+# docs
+/build/
+
+# Celery beat schedule file
+celerybeat-schedule.md
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Data / database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Instrumentation logs used by lilypond
+*.flu
+*.mid
+
+# MIDI files
+*.mid
+
+# Model files
+*.mtl
+*.obj
+*.stl
+*.fbx
+
+# Texture files
+*.png
+*.jpg
+*.jpeg
+*.tga
+*.bmp
+*.gif
+
+# Audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+
+# Video files
+# Project files
+*.ipr
+*.iml
+*.iws
+
+# Misc
+*.backup
+*~
+
+# Package Files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs-vid
+Uploads:
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Node modules (just in case)
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Miscellaneous
+.DS_Store
+Thumbs.db
+*.swp
+*~

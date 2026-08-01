@@ -1,228 +1,112 @@
 # Land Scanner Prototype - Deployment Guide
 
-## Overview
+## Project Structure
+- `backend/` - Python FastAPI application
+- `frontend/` - Static HTML/CSS/JS application
+- `Dockerfile.backend` - Dockerfile for backend service
+- `Dockerfile.frontend` - Dockerfile for frontend service (NGINX)
+- `docker-compose.yml` - Local development with Docker Compose
+- `render.yaml` - Deployment configuration for Render.com
+- `.gitignore` - Git ignore rules
 
-The Land Scanner Prototype is ready for deployment on Render or similar cloud platforms. This guide provides step-by-step instructions for deploying the application.
+## Quick Start
 
-## Prerequisites
-
-- GitHub account (for version control)
-- Render account (for hosting)
-- Git installed locally
-- Python 3.11+ (local testing)
-
-## Local Testing Before Deployment
-
-### 1. Setup Virtual Environment
-
+### Local Development with Docker Compose
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+docker-compose up --build
 ```
+- Backend API: http://localhost:8000
+- Frontend UI: http://localhost:8080
+- API docs: http://localhost:8000/docs
 
-### 2. Install Dependencies
+### Deployment to Render.com
+1. Push code to GitHub repository
+2. In Render dashboard:
+   - New → Web Service
+   - Connect your repository
+   - Repository: your-repo
+   - Branch: main
+   - Environment: Docker
+   - Plan: Free (or preferred)
+   - Click "Create Web Service"
+3. Render will automatically detect `render.yaml` and create two services:
+   - `ls-backend` (API service)
+   - `ls-frontend` (Static file service)
 
-```bash
-pip install -r requirements.txt
-```
+## Service Communication
 
-### 3. Run Tests
+### Local Development (docker-compose)
+- Frontend at `http://localhost:8080`
+- Backend API available at `http://localhost:8000`
+- Frontend proxies `/api/*` to backend via nginx configuration
 
-```bash
-# Run all tests
-python -m pytest tests/ -v
+### Production (Render.com)
+- Backend service: `ls-backend.onrender.com`
+- Frontend service: `ls-frontend.onrender.com`
+- Frontend nginx proxies `/api/*` to `http://ls-backend:8000/` (internal Docker network)
+- **Important**: The frontend uses `window.location.origin` for API base, which works because:
+  - Same-origin requests to `/api/` are proxied by nginx to backend
+  - No CORS issues since it appears as same-origin to the browser
 
-# Run specific test suite
-python -m pytest tests/test_polygon_validator.py -v
-python -m pytest tests/test_data_standardizer.py -v
-python -m pytest tests/test_rule_engine.py -v
-```
+## Manual Configuration (if needed)
 
-### 4. Start Backend Server
+If you need to configure the API base URL explicitly in the frontend:
+1. Edit `frontend/js/app.js`
+2. Change line 7 from:
+   ```javascript
+   const API_BASE = window.location.origin;
+   ```
+3. To:
+   ```javascript
+   const API_BASE = 'https://ls-backend.onrender.com'; // or your backend URL
+   ```
 
-```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-```
+## Environment Variables
 
-### 5. Start Frontend Server
+### Backend
+- `ENVIRONMENT`: Set to `production` for production builds
+- `LOG_LEVEL`: Logging level (debug, info, warning, error)
+- `PYTHON_VERSION`: Python runtime version (3.11)
 
-```bash
-cd frontend
-python -m http.server 3000
-```
+### Frontend
+- `BACKEND_URL`: Backend service URL (auto-set in render.yaml)
+- `BACKEND_PORT`: Backend port (8000)
 
-### 6. Test the System
+## Health Checks
+- Backend: `/health` endpoint
+- Frontend: `/health` endpoint (returns "healthy")
 
-Open browser: `http://localhost:3000`
+## Ports
+- Backend: 8000 (internal), mapped as needed externally
+- Frontend: 80 (internal), mapped as needed externally
 
-Test the analysis pipeline:
-1. Draw a polygon on the map
-2. Click "Analyze"
-3. Verify results display
+## Development Notes
 
-## Deployment Steps
+### Backend
+- Uses Uvicorn ASGI server
+- Auto-reload disabled in production (enable in Dockerfile.dev if needed)
+- CORS middleware configured to allow all origins (adjust for production)
 
-### Step 1: Push Code to GitHub
-
-```bash
-git add .
-git commit -m "Ready for deployment - Task 14"
-git push origin main
-```
-
-### Step 2: Create Render Web Service
-
-1. Go to https://render.com
-2. Click "New +" → "Web Service"
-3. Connect your GitHub repository
-4. Configure deployment:
-
-**Basic Settings:**
-- Name: `land-scanner-prototype`
-- Environment: `Python 3`
-- Build Command: `pip install -r requirements.txt`
-- Start Command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-
-**Environment Variables:**
-```
-APP_NAME=Land Scanner Prototype
-APP_VERSION=1.0.0
-DEBUG=false
-API_HOST=0.0.0.0
-API_PORT=8000
-LOG_LEVEL=INFO
-```
-
-**Instance Type:**
-- Free tier initially, or Starter plan for better performance
-
-### Step 3: Configure Frontend
-
-The frontend serves from the same domain as the backend due to CORS configuration. Render will serve static files through the FastAPI app or a separate static file configuration.
-
-For Render:
-1. Create a second Web Service for frontend (optional)
-2. Or serve frontend as static content from backend
-
-### Step 4: Verify Deployment
-
-Once deployed:
-
-1. Test health endpoint:
-```bash
-curl https://your-render-url.onrender.com/health
-```
-
-2. Test status endpoint:
-```bash
-curl https://your-render-url.onrender.com/status
-```
-
-3. Test with valid polygon:
-```bash
-curl -X POST https://your-render-url.onrender.com/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "polygon": {
-      "type": "Polygon",
-      "coordinates": [[
-        [-73.935, 40.731],
-        [-73.912, 40.731],
-        [-73.912, 40.749],
-        [-73.935, 40.749],
-        [-73.935, 40.731]
-      ]]
-    }
-  }'
-```
-
-## Production Deployment Checklist
-
-- [ ] All tests passing (144/144)
-- [ ] Code pushed to GitHub
-- [ ] Environment variables configured on Render
-- [ ] Health endpoint responds (200 OK)
-- [ ] Status endpoint shows all 6 providers enabled
-- [ ] /analyze endpoint processes valid polygons
-- [ ] Error handling works (invalid input returns 400/422)
-- [ ] API response times acceptable (<500ms for simple polygons)
-- [ ] Frontend loads and displays map
-- [ ] Frontend can draw polygons
-- [ ] Frontend can upload GeoJSON files
-- [ ] Frontend displays analysis results
-- [ ] CORS headers configured correctly
-- [ ] Logging configured for production
-- [ ] Database connections stable (if applicable)
-- [ ] Memory usage acceptable
-- [ ] CPU usage acceptable
+### Frontend
+- Served by NGINX
+- Static file caching enabled
+- API requests proxied to backend
+- Falls back to index.html for client-side routing (SPA support)
 
 ## Troubleshooting
 
-### Health Check Fails
-- Verify environment variables are set
-- Check Render logs for startup errors
-- Ensure Python 3.11 is selected
+1. **Container fails to start**: Check logs with `docker-compose logs [service]`
+2. **API calls fail**: Verify nginx proxy configuration and backend service name
+3. **Static files not loading**: Check nginx root directory and file permissions
+4. **Build failures**: Ensure Dockerfile syntax is correct and base images are available
 
-### Slow Response Times
-- Data collection from OSM takes 5-10 seconds
-- This is normal for the first query
-- Subsequent queries may be faster due to caching
+## Security Notes
+- For production, consider:
+  - Using non-root users (already implemented in backend)
+  - Adding rate limiting
+  - Using HTTPS (handled by Reverse Proxy/Load Balancer)
+  - Regular dependency updates
+  - Removing development tools from production images
 
-### CORS Errors in Frontend
-- Verify CORS middleware is enabled in backend/main.py
-- Check browser console for specific CORS error
-- Verify frontend and backend URLs match
-
-### Memory Issues
-- Check Render logs for OOM messages
-- Increase instance size if needed
-- Profile memory usage with production data
-
-## Scaling Considerations
-
-For production scaling:
-
-1. **Horizontal Scaling**: Deploy multiple backend instances behind a load balancer
-2. **Caching**: Add Redis for provider response caching
-3. **Database**: Add PostgreSQL for result persistence
-4. **CDN**: Serve frontend assets from CDN
-5. **Rate Limiting**: Implement rate limiting for API endpoints
-
-## Monitoring
-
-Setup monitoring for:
-- API response times
-- Error rates
-- Provider availability
-- Memory and CPU usage
-- Request volume and patterns
-
-## Support
-
-For issues or questions:
-1. Check backend logs: `tail -f logs/application.log`
-2. Check frontend console: Press F12 in browser
-3. Review error messages in /analyze response
-
-## Security Considerations
-
-Current implementation:
-- ✅ No authentication (demo/prototype)
-- ✅ CORS enabled for public access
-- ✅ Error messages sanitized (no stack traces)
-- ⚠️ Rate limiting not implemented (add for production)
-- ⚠️ API key authentication not implemented (add for production)
-
-## Next Steps
-
-1. Deploy to Render
-2. Test all endpoints in production
-3. Monitor performance metrics
-4. Gather user feedback
-5. Plan for production hardening (auth, rate limiting, etc.)
-
----
-
-**Deployment Date**: August 1, 2026  
-**Version**: 1.0.0  
-**Status**: Ready for Deployment
+## License
+[Your License Here]
