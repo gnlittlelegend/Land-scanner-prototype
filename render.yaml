@@ -16,10 +16,12 @@ services:
   # Frontend Static Site: serves frontend files with API proxy to backend
   - type: static
     name: land-scanner-prototype
+    env: static
     region: oregon
     branch: main
     build:
       publishDir: frontend
+      command: "echo 'Static site ready' && ls frontend"
     routes:
       - type: rewrite
         source: /analyze
