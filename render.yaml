@@ -1,31 +1,21 @@
 services:
-  # Backend Web Service: FastAPI application
   - type: web
-    name: ls-backend
-    env: docker
-    plan: free
-    region: oregon
-    branch: main
-    dockerfilePath: ./Dockerfile
-    autoDeploy: true
-    healthCheckPath: /health
+    name: land-scanner-prototype-backend
+    runtime: python
+    runtimeVersion: 3.11.0
+    buildCommand: bash .render/build.sh
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHONUNBUFFERED
+        value: true
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
       - key: LOG_LEVEL
-        value: info
-
-  # Frontend Static Site: serves frontend files with API proxy to backend
-  - type: static
-    name: land-scanner-prototype
-    env: static
-    region: oregon
-    branch: main
-    build:
-      publishDir: frontend
-      command: "echo 'Static site ready' && ls frontend"
-    routes:
-      - type: rewrite
-        source: /analyze
-        destination: https://ls-backend.onrender.com/analyze
-      - type: rewrite
-        source: /status
-        destination: https://ls-backend.onrender.com/status
+        value: INFO
+    healthCheckPath: /health
+    disk:
+      name: app-logs
+      mountPath: /app/logs
+      sizeGB: 1
