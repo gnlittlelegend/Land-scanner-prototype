@@ -1,21 +1,16 @@
 services:
   - type: web
     name: land-scanner-prototype-backend
-    runtime: python
-    runtimeVersion: 3.11.0
-    buildCommand: bash .render/build.sh
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: ""
+    healthCheckPath: /health
     envVars:
-      - key: PYTHONUNBUFFERED
-        value: true
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
         value: false
       - key: LOG_LEVEL
         value: INFO
-    healthCheckPath: /health
-    disk:
-      name: app-logs
-      mountPath: /app/logs
-      sizeGB: 1
+      - key: PYTHONUNBUFFERED
+        value: true
