@@ -12,23 +12,3 @@ services:
      envVars:
        - key: LOG_LEVEL
          value: info
-       
-  - type: web
-    name: ls-frontend
-    env: docker
-    plan: free
-    region: oregon
-    branch: main
-    dockerfilePath: ./Dockerfile.frontend
-    autoDeploy: true
-    healthCheckPath: /health
-    envVars:
-      - key: BACKEND_URL
-        fromService:
-          name: ls-backend
-          property: host
-      - key: BACKEND_PORT
-        value: "8000"
-    # Note: For Docker services on Render, inter-service communication 
-    # uses the service name as hostname. The frontend nginx.conf 
-    # should proxy to http://ls-backend:8000/
