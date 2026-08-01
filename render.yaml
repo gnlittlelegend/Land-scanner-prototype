@@ -1,4 +1,5 @@
 services:
+  # Backend Web Service: FastAPI application (Docker runtime for Python 3.11)
   - type: web
     name: land-scanner-prototype-backend
     runtime: docker
@@ -13,3 +14,12 @@ services:
         value: false
       - key: LOG_LEVEL
         value: INFO
+
+  # Frontend Static Site: serves static frontend files
+  - type: static
+    name: land-scanner-prototype
+    region: oregon
+    branch: main
+    build:
+      publishDir: frontend
+      command: "echo 'Static site build complete' && ls -la frontend/"
