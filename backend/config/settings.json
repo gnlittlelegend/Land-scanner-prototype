@@ -1,0 +1,11 @@
+{
+  "app": {
+    "name": "Land Scanner",
+    "version": "1.0.0",
+    "debug": false
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000
+  }
+}

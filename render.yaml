@@ -17,13 +17,3 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: INFO
-
-  # Frontend Static Site: serves static frontend files
-  - type: static
-    name: land-scanner-prototype
-    env: static
-    region: oregon
-    branch: main
-    build:
-      publishDir: frontend
-      command: "echo 'Static site build complete' && ls -la frontend/"
