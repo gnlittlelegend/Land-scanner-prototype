@@ -1,25 +1,19 @@
 services:
-  # Backend Web Service: FastAPI application (Docker runtime for Python 3.11)
+  # Single Docker service: Backend serves both API and static frontend files
   - type: web
     name: land-scanner-prototype-backend
-    runtime: docker
-    dockerfilePath: Dockerfile
-    dockerBuildContextPath: .
-    startCommand: ""
+    env: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    autoDeploy: true
     healthCheckPath: /health
     envVars:
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
-        value: false
+        value: "false"
       - key: LOG_LEVEL
         value: INFO
-
-  # Frontend Static Site: serves static frontend files
-  - type: static
-    name: land-scanner-prototype
-    region: oregon
-    branch: main
-    build:
-      publishDir: frontend
-      command: "echo 'Static site build complete' && ls -la frontend/"

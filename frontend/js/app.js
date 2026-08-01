@@ -3,8 +3,8 @@
  * Handles polygon input, analysis requests, and results display
  */
 
-// Configuration - Backend API URL (separate from frontend Static Site)
-const API_BASE = "https://land-scanner-prototype-backend.onrender.com";
+// Configuration - Backend and frontend served from same domain
+const API_BASE = window.location.origin;
 const API_TIMEOUT = 60000; // 60 seconds
 
 // Global state
