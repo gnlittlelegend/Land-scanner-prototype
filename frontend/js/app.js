@@ -69,7 +69,7 @@ function initializeMap() {
     map.on('draw:edited', function(e) {
         const layers = e.layers;
         layers.eachLayer(function(layer) {
-            currentPolygon = layer.toGeoJSON();
+            currentPolygon = layer.toGeoJSON().geometry;
         });
     });
     
