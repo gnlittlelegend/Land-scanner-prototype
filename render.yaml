@@ -1,14 +1,29 @@
 services:
-   # Single Docker service: Backend serves both API and static frontend files
-   - type: web
-     name: ls-backend
-     env: docker
-     plan: free
-     region: oregon
-     branch: main
-     dockerfilePath: ./Dockerfile
-     autoDeploy: true
-     healthCheckPath: /health
-     envVars:
-       - key: LOG_LEVEL
-         value: info
+  # Backend Web Service: FastAPI application
+  - type: web
+    name: ls-backend
+    env: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: LOG_LEVEL
+        value: info
+
+  # Frontend Static Site: serves frontend files with API proxy to backend
+  - type: static
+    name: land-scanner-prototype
+    region: oregon
+    branch: main
+    build:
+      publishDir: frontend
+    routes:
+      - type: rewrite
+        source: /analyze
+        destination: https://ls-backend.onrender.com/analyze
+      - type: rewrite
+        source: /status
+        destination: https://ls-backend.onrender.com/status
