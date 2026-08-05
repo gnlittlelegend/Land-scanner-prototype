@@ -1,364 +1,387 @@
-"""
-Data Validator Module
+"""Data validation module for collected datasets from providers"""
 
-Validates collected raw datasets before standardization.
-Ensures datasets meet structural requirements and records validation status.
-"""
-
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, List, Optional, Tuple
+from enum import Enum
+from datetime import datetime
 import logging
+from backend.data_models import RawDataset, Feature
 
-from backend.models import RawDataset, ProcessingStatus, DataCategory
 
 logger = logging.getLogger(__name__)
 
 
-class DataValidationError(Exception):
-    """Raised when data validation fails."""
-    pass
+class ValidationStatus(Enum):
+    """Validation status enumeration"""
+    SUCCESS = "success"
+    EMPTY = "empty"
+    INVALID = "invalid"
+    PARTIAL = "partial"
 
 
-class DatasetValidationResult:
-    """Result of dataset validation."""
+class ValidationResult:
+    """Result of dataset validation"""
     
-    def __init__(self):
-        self.status: ProcessingStatus = ProcessingStatus.SUCCESS
-        self.is_empty: bool = False
-        self.has_errors: bool = False
-        self.error_messages: List[str] = []
-        self.warning_messages: List[str] = []
-        self.feature_count: int = 0
-        self.missing_fields: List[str] = []
+    def __init__(
+        self,
+        status: ValidationStatus,
+        is_valid: bool,
+        message: str = "",
+        issues: Optional[List[str]] = None,
+        record_count: int = 0,
+    ):
+        """
+        Initialize validation result
+        
+        Args:
+            status: ValidationStatus enum value
+            is_valid: Whether dataset is valid
+            message: Human-readable message
+            issues: List of validation issues found
+            record_count: Number of valid records
+        """
+        self.status = status
+        self.is_valid = is_valid
+        self.message = message
+        self.issues = issues or []
+        self.record_count = record_count
+        self.timestamp = datetime.utcnow()
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert validation result to dictionary."""
+        """Convert to dictionary representation"""
         return {
             "status": self.status.value,
-            "is_empty": self.is_empty,
-            "has_errors": self.has_errors,
-            "error_messages": self.error_messages,
-            "warning_messages": self.warning_messages,
-            "feature_count": self.feature_count,
-            "missing_fields": self.missing_fields
+            "is_valid": self.is_valid,
+            "message": self.message,
+            "issues": self.issues,
+            "record_count": self.record_count,
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
 class DataValidator:
-    """
-    Validates collected raw datasets.
+    """Validates collected datasets from providers"""
     
-    Responsibilities:
-    - Validate dataset structure matches RawDataset model
-    - Check for empty datasets
-    - Detect missing required fields
-    - Record validation status (success, partial, failed)
-    - Never reject data that could be standardized (graceful degradation)
-    """
+    # Required fields in RawDataset
+    REQUIRED_DATASET_FIELDS = {"source_provider", "category", "features", "metadata"}
     
-    # Required fields in dataset
-    REQUIRED_DATASET_FIELDS = [
-        "source_provider",
-        "category",
-        "geometry_type",
-        "features",
-        "metadata"
-    ]
+    # Required fields in each Feature
+    REQUIRED_FEATURE_FIELDS = {"type", "geometry", "properties"}
     
-    # Required fields in each feature
-    REQUIRED_FEATURE_FIELDS = [
-        "geometry",
-        "properties"
-    ]
+    # Valid geometry types
+    VALID_GEOMETRY_TYPES = {"Point", "LineString", "Polygon", "MultiPoint", "MultiLineString", "MultiPolygon"}
     
-    # Required fields in geometry
-    REQUIRED_GEOMETRY_FIELDS = [
-        "type",
-        "coordinates"
-    ]
+    # Valid data categories
+    VALID_CATEGORIES = {"buildings", "land_cover", "roads", "water", "elevation", "admin"}
     
-    @staticmethod
-    def validate(dataset: RawDataset) -> DatasetValidationResult:
+    # Valid data source providers
+    VALID_PROVIDERS = {"OSM", "Copernicus", "USGS", "GEBCO"}
+    
+    def __init__(self):
+        """Initialize DataValidator"""
+        self.logger = logger
+    
+    def validate(self, dataset: RawDataset) -> ValidationResult:
         """
-        Validate a raw dataset.
+        Validate a dataset from a provider
         
         Args:
-            dataset: Raw dataset to validate
+            dataset: RawDataset to validate
             
         Returns:
-            DatasetValidationResult with validation status
+            ValidationResult with status and details
         """
-        result = DatasetValidationResult()
+        issues = []
         
-        try:
-            # Validate basic structure
-            DataValidator._validate_dataset_structure(dataset, result)
-            
-            # Check for empty dataset
-            if len(dataset.features) == 0:
-                result.is_empty = True
-                result.warning_messages.append("Dataset contains no features")
-                result.status = ProcessingStatus.INSUFFICIENT_DATA
-                logger.warning(
-                    f"Dataset from {dataset.source_provider} ({dataset.category.value}) is empty"
-                )
-                return result
-            
-            # Validate feature count and feature structure
-            result.feature_count = len(dataset.features)
-            DataValidator._validate_features(dataset, result)
-            
-            # Check for critical errors
-            if result.has_errors:
-                result.status = ProcessingStatus.PARTIAL
-                logger.warning(
-                    f"Dataset validation completed with errors: "
-                    f"{result.feature_count} features, "
-                    f"{len(result.error_messages)} error(s)"
-                )
+        # Validate dataset structure
+        structure_issues = self._validate_structure(dataset)
+        issues.extend(structure_issues)
+        
+        if issues:
+            self.logger.warning(f"Dataset structure validation failed: {issues}")
+            return ValidationResult(
+                status=ValidationStatus.INVALID,
+                is_valid=False,
+                message=f"Dataset structure invalid: {'; '.join(issues)}",
+                issues=issues,
+                record_count=0,
+            )
+        
+        # Check if dataset is empty
+        if not dataset.features:
+            self.logger.info(f"Dataset from {dataset.source_provider} is empty")
+            return ValidationResult(
+                status=ValidationStatus.EMPTY,
+                is_valid=False,
+                message="Dataset contains no features",
+                issues=["No features in dataset"],
+                record_count=0,
+            )
+        
+        # Validate features
+        feature_issues, valid_count = self._validate_features(dataset.features)
+        
+        # Determine overall status
+        if feature_issues:
+            if valid_count > 0:
+                # Some features are valid, some invalid
+                status = ValidationStatus.PARTIAL
+                is_valid = False
+                message = f"Dataset partially valid: {valid_count} valid records, {len(dataset.features) - valid_count} invalid"
+                issues.extend(feature_issues)
             else:
-                result.status = ProcessingStatus.SUCCESS
-                logger.info(
-                    f"Dataset validation successful: "
-                    f"{result.feature_count} features from {dataset.source_provider}"
-                )
-            
-            return result
-            
-        except DataValidationError as e:
-            result.has_errors = True
-            result.error_messages.append(str(e))
-            result.status = ProcessingStatus.FAILED
-            logger.error(f"Dataset validation failed: {str(e)}")
-            return result
-        except Exception as e:
-            result.has_errors = True
-            result.error_messages.append(f"Unexpected validation error: {str(e)}")
-            result.status = ProcessingStatus.FAILED
-            logger.error(f"Unexpected error during validation: {str(e)}", exc_info=True)
-            return result
+                # No valid features
+                status = ValidationStatus.INVALID
+                is_valid = False
+                message = "All features in dataset are invalid"
+                issues.extend(feature_issues)
+        else:
+            # All features valid
+            status = ValidationStatus.SUCCESS
+            is_valid = True
+            message = f"Dataset validation successful: {valid_count} records"
+            valid_count = len(dataset.features)
+        
+        self.logger.info(f"Dataset validation complete: {message}")
+        
+        return ValidationResult(
+            status=status,
+            is_valid=is_valid,
+            message=message,
+            issues=issues,
+            record_count=valid_count,
+        )
     
-    @staticmethod
-    def _validate_dataset_structure(dataset: RawDataset, result: DatasetValidationResult) -> None:
+    def _validate_structure(self, dataset: RawDataset) -> List[str]:
         """
-        Validate dataset structure.
+        Validate dataset top-level structure
         
         Args:
-            dataset: Dataset to validate
-            result: Result object to populate
+            dataset: RawDataset to validate
             
-        Raises:
-            DataValidationError: If structure is invalid
+        Returns:
+            List of validation issues (empty if no issues)
         """
-        # Verify dataset is a RawDataset instance
-        if not isinstance(dataset, RawDataset):
-            raise DataValidationError(
-                f"Expected RawDataset instance, got {type(dataset).__name__}"
-            )
+        issues = []
         
-        # Validate source provider
-        if not dataset.source_provider or not isinstance(dataset.source_provider, str):
-            raise DataValidationError("Dataset must have a valid source_provider string")
+        # Check required fields
+        for field in self.REQUIRED_DATASET_FIELDS:
+            if not hasattr(dataset, field):
+                issues.append(f"Missing required field: {field}")
+        
+        # Validate source_provider
+        if dataset.source_provider not in self.VALID_PROVIDERS:
+            issues.append(f"Invalid source_provider '{dataset.source_provider}'. Must be one of: {self.VALID_PROVIDERS}")
         
         # Validate category
-        if not isinstance(dataset.category, (DataCategory, str)):
-            raise DataValidationError("Dataset must have a valid category")
-        
-        # Validate geometry type
-        if not dataset.geometry_type or not isinstance(dataset.geometry_type, str):
-            raise DataValidationError("Dataset must have a valid geometry_type string")
-        
-        valid_geometry_types = ["Point", "LineString", "Polygon"]
-        if dataset.geometry_type not in valid_geometry_types:
-            raise DataValidationError(
-                f"Invalid geometry_type: {dataset.geometry_type}. "
-                f"Must be one of {valid_geometry_types}"
-            )
+        if dataset.category not in self.VALID_CATEGORIES:
+            issues.append(f"Invalid category '{dataset.category}'. Must be one of: {self.VALID_CATEGORIES}")
         
         # Validate features is a list
         if not isinstance(dataset.features, list):
-            raise DataValidationError(
-                f"Dataset.features must be a list, got {type(dataset.features).__name__}"
-            )
+            issues.append(f"Features must be a list, got {type(dataset.features)}")
         
-        # Validate metadata is a dictionary
+        # Validate metadata is a dict
         if not isinstance(dataset.metadata, dict):
-            raise DataValidationError(
-                f"Dataset.metadata must be a dictionary, got {type(dataset.metadata).__name__}"
-            )
-    
-    @staticmethod
-    def _validate_features(dataset: RawDataset, result: DatasetValidationResult) -> None:
-        """
-        Validate features in the dataset.
+            issues.append(f"Metadata must be a dict, got {type(dataset.metadata)}")
         
-        Records errors for malformed features but doesn't reject the entire dataset.
+        return issues
+    
+    def _validate_features(self, features: List[Feature]) -> Tuple[List[str], int]:
+        """
+        Validate individual features in dataset
         
         Args:
-            dataset: Dataset containing features
-            result: Result object to populate with validation results
-        """
-        for idx, feature in enumerate(dataset.features):
-            if not isinstance(feature, dict):
-                result.error_messages.append(
-                    f"Feature {idx}: Expected dictionary, got {type(feature).__name__}"
-                )
-                result.has_errors = True
-                continue
-            
-            # Check for geometry
-            if "geometry" not in feature:
-                result.error_messages.append(
-                    f"Feature {idx}: Missing required field 'geometry'"
-                )
-                result.has_errors = True
-                result.missing_fields.append(f"feature[{idx}].geometry")
-                continue
-            
-            # Validate geometry
-            geometry = feature.get("geometry")
-            if not isinstance(geometry, dict):
-                result.error_messages.append(
-                    f"Feature {idx}: Geometry must be a dictionary"
-                )
-                result.has_errors = True
-                continue
-            
-            # Check geometry structure
-            if "type" not in geometry:
-                result.error_messages.append(
-                    f"Feature {idx}: Geometry missing 'type' field"
-                )
-                result.has_errors = True
-            
-            if "coordinates" not in geometry:
-                result.error_messages.append(
-                    f"Feature {idx}: Geometry missing 'coordinates' field"
-                )
-                result.has_errors = True
-            
-            # Check for properties
-            if "properties" not in feature:
-                result.error_messages.append(
-                    f"Feature {idx}: Missing required field 'properties'"
-                )
-                result.has_errors = True
-                result.missing_fields.append(f"feature[{idx}].properties")
-                continue
-            
-            # Validate properties is a dictionary
-            properties = feature.get("properties")
-            if not isinstance(properties, (dict, type(None))):
-                result.error_messages.append(
-                    f"Feature {idx}: Properties must be a dictionary or null, "
-                    f"got {type(properties).__name__}"
-                )
-                result.has_errors = True
-    
-    @staticmethod
-    def validate_collection(
-        datasets: List[RawDataset]
-    ) -> Dict[str, DatasetValidationResult]:
-        """
-        Validate a collection of datasets.
-        
-        Args:
-            datasets: List of raw datasets
+            features: List of Feature objects to validate
             
         Returns:
-            Dictionary mapping source_provider to validation result
+            Tuple of (validation_issues, valid_feature_count)
         """
-        results = {}
+        issues = []
+        valid_count = 0
         
-        for dataset in datasets:
-            if dataset and hasattr(dataset, 'source_provider'):
-                provider_key = dataset.source_provider
-                results[provider_key] = DataValidator.validate(dataset)
+        for idx, feature in enumerate(features):
+            feature_issues = self._validate_feature(feature, idx)
+            if not feature_issues:
+                valid_count += 1
             else:
-                logger.warning("Invalid dataset in collection, skipping")
+                issues.extend(feature_issues)
         
-        return results
+        return issues, valid_count
     
-    @staticmethod
-    def check_critical_data_available(
-        validation_results: Dict[str, DatasetValidationResult],
-        critical_providers: Optional[List[str]] = None
-    ) -> bool:
+    def _validate_feature(self, feature: Feature, index: int) -> List[str]:
         """
-        Check if critical data is available from validation results.
+        Validate a single feature
         
         Args:
-            validation_results: Dictionary of validation results
-            critical_providers: List of critical provider names (optional)
+            feature: Feature to validate
+            index: Index of feature in list
             
         Returns:
-            True if at least one critical provider succeeded, False otherwise
+            List of validation issues for this feature
         """
-        if not critical_providers:
-            # If no critical providers specified, check for any successful validation
-            return any(
-                result.status in [ProcessingStatus.SUCCESS, ProcessingStatus.PARTIAL]
-                for result in validation_results.values()
-            )
+        issues = []
         
-        # Check if at least one critical provider succeeded
-        for provider in critical_providers:
-            if provider in validation_results:
-                result = validation_results[provider]
-                if result.status in [ProcessingStatus.SUCCESS, ProcessingStatus.PARTIAL]:
-                    return True
+        # Check required fields
+        for field in self.REQUIRED_FEATURE_FIELDS:
+            if not hasattr(feature, field):
+                issues.append(f"Feature {index}: Missing required field '{field}'")
         
-        return False
+        # Validate type field
+        if hasattr(feature, 'type') and feature.type != "Feature":
+            issues.append(f"Feature {index}: Type must be 'Feature', got '{feature.type}'")
+        
+        # Validate geometry
+        if hasattr(feature, 'geometry'):
+            geometry_issues = self._validate_geometry(feature.geometry, index)
+            issues.extend(geometry_issues)
+        
+        # Validate properties
+        if hasattr(feature, 'properties'):
+            if not isinstance(feature.properties, dict):
+                issues.append(f"Feature {index}: Properties must be a dict, got {type(feature.properties)}")
+        
+        return issues
     
-    @staticmethod
-    def get_validation_summary(
-        validation_results: Dict[str, DatasetValidationResult]
-    ) -> Dict[str, Any]:
+    def _validate_geometry(self, geometry: Dict[str, Any], feature_index: int) -> List[str]:
         """
-        Get a summary of validation results.
+        Validate GeoJSON geometry
         
         Args:
-            validation_results: Dictionary of validation results
+            geometry: Geometry dict to validate
+            feature_index: Index of feature (for error messages)
             
         Returns:
-            Summary dictionary with overall statistics
+            List of validation issues
         """
-        total_datasets = len(validation_results)
-        successful = sum(
-            1 for r in validation_results.values()
-            if r.status == ProcessingStatus.SUCCESS
-        )
-        partial = sum(
-            1 for r in validation_results.values()
-            if r.status == ProcessingStatus.PARTIAL
-        )
-        failed = sum(
-            1 for r in validation_results.values()
-            if r.status == ProcessingStatus.FAILED
-        )
-        insufficient = sum(
-            1 for r in validation_results.values()
-            if r.status == ProcessingStatus.INSUFFICIENT_DATA
-        )
-        total_features = sum(
-            r.feature_count for r in validation_results.values()
-        )
+        issues = []
         
-        overall_status = ProcessingStatus.SUCCESS
-        if failed > 0:
-            overall_status = ProcessingStatus.PARTIAL if successful > 0 else ProcessingStatus.FAILED
-        elif partial > 0 or insufficient > 0:
-            overall_status = ProcessingStatus.PARTIAL
+        if not isinstance(geometry, dict):
+            issues.append(f"Feature {feature_index}: Geometry must be a dict, got {type(geometry)}")
+            return issues
         
-        return {
-            "overall_status": overall_status.value,
-            "total_datasets": total_datasets,
-            "successful_datasets": successful,
-            "partial_datasets": partial,
-            "failed_datasets": failed,
-            "insufficient_data_datasets": insufficient,
-            "total_features": total_features,
-            "provider_results": {
-                provider: result.to_dict()
-                for provider, result in validation_results.items()
-            }
-        }
+        # Check for type field
+        if "type" not in geometry:
+            issues.append(f"Feature {feature_index}: Geometry missing 'type' field")
+            return issues
+        
+        geom_type = geometry.get("type")
+        
+        # Validate geometry type
+        if geom_type not in self.VALID_GEOMETRY_TYPES:
+            issues.append(f"Feature {feature_index}: Invalid geometry type '{geom_type}'. Must be one of: {self.VALID_GEOMETRY_TYPES}")
+            return issues
+        
+        # Check for coordinates field
+        if "coordinates" not in geometry:
+            issues.append(f"Feature {feature_index}: Geometry missing 'coordinates' field")
+            return issues
+        
+        coordinates = geometry.get("coordinates")
+        
+        # Validate coordinates structure by type
+        if geom_type == "Point":
+            coord_issues = self._validate_point_coordinates(coordinates, feature_index)
+        elif geom_type == "LineString":
+            coord_issues = self._validate_linestring_coordinates(coordinates, feature_index)
+        elif geom_type == "Polygon":
+            coord_issues = self._validate_polygon_coordinates(coordinates, feature_index)
+        elif geom_type == "MultiPoint":
+            coord_issues = self._validate_multipoint_coordinates(coordinates, feature_index)
+        elif geom_type == "MultiLineString":
+            coord_issues = self._validate_multilinestring_coordinates(coordinates, feature_index)
+        elif geom_type == "MultiPolygon":
+            coord_issues = self._validate_multipolygon_coordinates(coordinates, feature_index)
+        else:
+            coord_issues = [f"Feature {feature_index}: Unsupported geometry type '{geom_type}'"]
+        
+        issues.extend(coord_issues)
+        return issues
+    
+    def _validate_point_coordinates(self, coordinates: Any, feature_index: int) -> List[str]:
+        """Validate Point coordinates"""
+        issues = []
+        if not isinstance(coordinates, list):
+            issues.append(f"Feature {feature_index}: Point coordinates must be a list")
+            return issues
+        if len(coordinates) < 2:
+            issues.append(f"Feature {feature_index}: Point must have at least 2 coordinates [lon, lat]")
+            return issues
+        if not isinstance(coordinates[0], (int, float)) or not isinstance(coordinates[1], (int, float)):
+            issues.append(f"Feature {feature_index}: Point coordinates must be numbers")
+            return issues
+        return issues
+    
+    def _validate_linestring_coordinates(self, coordinates: Any, feature_index: int) -> List[str]:
+        """Validate LineString coordinates"""
+        issues = []
+        if not isinstance(coordinates, list):
+            issues.append(f"Feature {feature_index}: LineString coordinates must be a list")
+            return issues
+        if len(coordinates) < 2:
+            issues.append(f"Feature {feature_index}: LineString must have at least 2 positions")
+            return issues
+        for idx, coord in enumerate(coordinates):
+            if not isinstance(coord, list) or len(coord) < 2:
+                issues.append(f"Feature {feature_index}: LineString position {idx} invalid")
+                break
+        return issues
+    
+    def _validate_polygon_coordinates(self, coordinates: Any, feature_index: int) -> List[str]:
+        """Validate Polygon coordinates"""
+        issues = []
+        if not isinstance(coordinates, list):
+            issues.append(f"Feature {feature_index}: Polygon coordinates must be a list")
+            return issues
+        if len(coordinates) == 0:
+            issues.append(f"Feature {feature_index}: Polygon must have at least one ring")
+            return issues
+        
+        # Check each ring
+        for ring_idx, ring in enumerate(coordinates):
+            if not isinstance(ring, list):
+                issues.append(f"Feature {feature_index}: Polygon ring {ring_idx} must be a list")
+                continue
+            if len(ring) < 4:
+                issues.append(f"Feature {feature_index}: Polygon ring {ring_idx} must have at least 4 positions")
+                continue
+            # Check if ring is closed (first and last coordinates should match)
+            if ring[0] != ring[-1]:
+                issues.append(f"Feature {feature_index}: Polygon ring {ring_idx} is not closed")
+        
+        return issues
+    
+    def _validate_multipoint_coordinates(self, coordinates: Any, feature_index: int) -> List[str]:
+        """Validate MultiPoint coordinates"""
+        issues = []
+        if not isinstance(coordinates, list):
+            issues.append(f"Feature {feature_index}: MultiPoint coordinates must be a list")
+            return issues
+        for idx, point in enumerate(coordinates):
+            if not isinstance(point, list) or len(point) < 2:
+                issues.append(f"Feature {feature_index}: MultiPoint position {idx} invalid")
+                break
+        return issues
+    
+    def _validate_multilinestring_coordinates(self, coordinates: Any, feature_index: int) -> List[str]:
+        """Validate MultiLineString coordinates"""
+        issues = []
+        if not isinstance(coordinates, list):
+            issues.append(f"Feature {feature_index}: MultiLineString coordinates must be a list")
+            return issues
+        for idx, linestring in enumerate(coordinates):
+            if not isinstance(linestring, list) or len(linestring) < 2:
+                issues.append(f"Feature {feature_index}: MultiLineString {idx} invalid")
+                break
+        return issues
+    
+    def _validate_multipolygon_coordinates(self, coordinates: Any, feature_index: int) -> List[str]:
+        """Validate MultiPolygon coordinates"""
+        issues = []
+        if not isinstance(coordinates, list):
+            issues.append(f"Feature {feature_index}: MultiPolygon coordinates must be a list")
+            return issues
+        for idx, polygon in enumerate(coordinates):
+            if not isinstance(polygon, list) or len(polygon) == 0:
+                issues.append(f"Feature {feature_index}: MultiPolygon {idx} invalid")
+                break
+        return issues

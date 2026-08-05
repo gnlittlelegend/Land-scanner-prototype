@@ -223,8 +223,15 @@ class BuildingsStandardizer:
         """
         standardized = {}
 
+        # Always include name if present
+        if "name" in raw_properties and raw_properties["name"]:
+            standardized["name"] = str(raw_properties["name"]).strip()
+
         # Map provider-specific fields to standardized names
         for raw_key, raw_value in raw_properties.items():
+            if raw_key == "name":
+                continue  # Already handled
+                
             standardized_key = cls._get_standardized_key(raw_key)
             
             if standardized_key:
@@ -233,7 +240,8 @@ class BuildingsStandardizer:
                     standardized_key,
                     raw_value
                 )
-                standardized[standardized_key] = standardized_value
+                if standardized_value is not None:
+                    standardized[standardized_key] = standardized_value
 
         return standardized
 
@@ -358,8 +366,17 @@ class BuildingsStandardizer:
             Normalized numeric value, or None if cannot convert
         """
         try:
+            # Handle string values with units (e.g., "30m")
+            if isinstance(value, str):
+                # Remove common units
+                value_str = value.strip().lower()
+                for unit in ["m", "meter", "meters", "ft", "feet", "'", "cm"]:
+                    if value_str.endswith(unit):
+                        value_str = value_str[:-len(unit)].strip()
+                        break
+                return float(value_str)
             return float(value)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError):
             return None
 
     @classmethod

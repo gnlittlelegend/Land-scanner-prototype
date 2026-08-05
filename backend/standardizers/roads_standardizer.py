@@ -294,7 +294,19 @@ class RoadsStandardizer:
             Normalized numeric value, or None if cannot convert
         """
         try:
-            numeric_value = float(value)
+            # Handle string values with units (e.g., "30m", "50km/h")
+            if isinstance(value, str):
+                value_str = value.strip().lower()
+                # Remove common units
+                for unit in ["m", "meter", "meters", "km", "kilometer", "kilometers", 
+                           "ft", "feet", "'", "cm", "kmh", "km/h", "mph"]:
+                    if value_str.endswith(unit):
+                        value_str = value_str[:-len(unit)].strip()
+                        break
+                numeric_value = float(value_str)
+            else:
+                numeric_value = float(value)
+            
             # Ensure non-negative for physical measurements
             if numeric_value < 0:
                 return None

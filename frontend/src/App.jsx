@@ -3,13 +3,11 @@ import Header from './components/Header'
 import MapContainer from './components/MapContainer'
 import ControlPanel from './components/ControlPanel'
 import ResultsPanel from './components/ResultsPanel'
-import ErrorPanel from './components/ErrorPanel'
+import ErrorDisplay from './components/ErrorDisplay'
 import LoadingIndicator from './components/LoadingIndicator'
 import ErrorBoundary from './components/ErrorBoundary'
+import { analyzePolygon, logApiEvent } from './services/api'
 import './index.css'
-
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://land-scanner-prototype-backend.onrender.com'
-const API_TIMEOUT = 60000
 
 export default function App() {
   const [currentPolygon, setCurrentPolygon] = useState(null)
@@ -17,21 +15,44 @@ export default function App() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [analysisInProgress, setAnalysisInProgress] = useState(false)
+  const [currentRequestId, setCurrentRequestId] = useState(null)
+  const [polygonValidation, setPolygonValidation] = useState(null)
 
   const handlePolygonDraw = (polygon) => {
     setCurrentPolygon(polygon)
     setError(null)
   }
 
+  const handleValidationChange = (validation) => {
+    setPolygonValidation(validation)
+    if (validation && !validation.valid) {
+      setError(validation.error)
+    } else {
+      setError(null)
+    }
+  }
+
   const handleClearPolygon = () => {
     setCurrentPolygon(null)
     setAnalysisResults(null)
     setError(null)
+    setPolygonValidation(null)
   }
 
   const handleGeoJSONUpload = (geojson) => {
-    setCurrentPolygon(geojson)
-    setError(null)
+    // Validate uploaded GeoJSON
+    const { validatePolygon } = require('./utils/polygonValidator')
+    const validation = validatePolygon(geojson)
+    
+    if (validation.valid) {
+      setCurrentPolygon(geojson)
+      setPolygonValidation(validation)
+      setError(null)
+    } else {
+      setCurrentPolygon(null)
+      setPolygonValidation(validation)
+      setError(validation.error)
+    }
   }
 
   const handleAnalyze = async () => {
@@ -50,28 +71,29 @@ export default function App() {
     setError(null)
 
     try {
-      const response = await fetch(`${API_BASE}/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ polygon: currentPolygon })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error_message || `Server error: ${response.status}`)
+      logApiEvent(null, 'polygon_analysis_started', { polygon: currentPolygon })
+      
+      const results = await analyzePolygon(currentPolygon)
+      
+      // Store request ID for tracking
+      if (results.request_id) {
+        setCurrentRequestId(results.request_id)
+        logApiEvent(results.request_id, 'analysis_completed', { 
+          processing_time_ms: results.processing_time_ms,
+          status: results.status 
+        })
       }
-
-      const results = await response.json()
+      
       setAnalysisResults(results)
     } catch (err) {
       let errorMsg = 'Failed to analyze polygon'
-      if (err.name === 'AbortError') {
-        errorMsg = 'Analysis request timed out. Please try again.'
+      if (err.message.includes('timeout')) {
+        errorMsg = err.message
       } else if (err.message) {
         errorMsg = err.message
       }
+      
+      logApiEvent(currentRequestId, 'analysis_failed', { error: errorMsg })
       setError(errorMsg)
     } finally {
       setLoading(false)
@@ -88,6 +110,7 @@ export default function App() {
             <MapContainer
               onPolygonDraw={handlePolygonDraw}
               onGeoJSONUpload={handleGeoJSONUpload}
+              onValidationChange={handleValidationChange}
               currentPolygon={currentPolygon}
             />
           </ErrorBoundary>
@@ -98,6 +121,7 @@ export default function App() {
               onGeoJSONUpload={handleGeoJSONUpload}
               hasPolygon={!!currentPolygon}
               isAnalyzing={analysisInProgress}
+              polygonValidation={polygonValidation}
             />
           </ErrorBoundary>
         </div>
@@ -105,7 +129,13 @@ export default function App() {
           {analysisResults && <ResultsPanel results={analysisResults} />}
         </ErrorBoundary>
         <ErrorBoundary>
-          {error && <ErrorPanel error={error} onClose={() => setError(null)} />}
+          {error && (
+            <ErrorDisplay 
+              error={error} 
+              severity={error?.severity || 'error'}
+              onClose={() => setError(null)} 
+            />
+          )}
         </ErrorBoundary>
         <ErrorBoundary>
           {loading && <LoadingIndicator />}

@@ -1,0 +1,23 @@
+{
+  "provider": "osm_buildings",
+  "polygon_id": "valid_small",
+  "features": [
+    {
+      "id": "building_001",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97,
+          40.78
+        ]
+      },
+      "properties": {
+        "building_type": "residential"
+      }
+    }
+  ],
+  "metadata": {
+    "timestamp": "2024-01-15T10:30:00Z",
+    "source": "Overpass API"
+  }
+}

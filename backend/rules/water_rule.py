@@ -149,12 +149,23 @@ class WaterFeaturesRule(Rule):
             "lake": "Lake",
             "pond": "Pond",
             "canal": "Canal",
+            "reservoir": "Reservoir",
             "waterway": "Waterway",
-            "water": "Water body"
+            "water": "Water body",
+            "drain": "Drain",
+            "ditch": "Ditch",
+            "channel": "Channel",
+            "estuary": "Estuary",
+            "lagoon": "Lagoon",
+            "bay": "Bay",
+            "wetland": "Wetland",
+            "marsh": "Marsh",
+            "swamp": "Swamp",
+            "bog": "Bog"
         }
         
         for wtype in water_types:
-            feature_name = type_names.get(wtype.lower(), wtype)
+            feature_name = type_names.get(wtype.lower(), wtype.title())
             if feature_name not in features:
                 features.append(feature_name)
         

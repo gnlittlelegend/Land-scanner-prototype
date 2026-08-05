@@ -1,138 +1,139 @@
 """
-Data models and schemas for the Land Scanner Prototype.
-Defines the core data structures used throughout the system.
+Core data models for Land Scanner Prototype.
+
+This module defines Pydantic models for:
+- Polygon (GeoJSON wrapper)
+- StandardizedDataset
+- Feature (geometry and properties)
+- RuleResult
+- AnalysisResponse
+
+All models include validation to ensure data integrity.
 """
 
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field, validator
-from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 
-class ProcessingStatus(str, Enum):
-    """Processing status values for modules and rules."""
-    SUCCESS = "success"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-    INSUFFICIENT_DATA = "insufficient_data"
-    PARTIAL = "partial"
-
-
 class DataCategory(str, Enum):
-    """Data categories for standardized datasets."""
+    """Enumeration of data categories."""
     BUILDINGS = "buildings"
+    ADMIN = "admin"
     LAND_COVER = "land_cover"
     ROADS = "roads"
     WATER = "water"
     ELEVATION = "elevation"
-    ADMIN = "admin"
 
 
-class Polygon(BaseModel):
-    """Validated polygon with metadata."""
-    geojson: Dict[str, Any] = Field(..., description="Valid GeoJSON structure")
-    area_sqkm: float = Field(..., description="Calculated polygon area in square kilometers")
-    bounding_box: tuple = Field(..., description="(minx, miny, maxx, maxy)")
-    centroid: tuple = Field(..., description="(longitude, latitude)")
-    crs: str = Field(default="EPSG:4326", description="Coordinate Reference System")
-    is_valid: bool = Field(default=True, description="Validation status")
+class ProcessingStatus(str, Enum):
+    """Enumeration of processing statuses."""
+    SUCCESS = "success"
+    FAILED = "failed"
+    INSUFFICIENT_DATA = "insufficient_data"
+    PARTIAL = "partial"
 
 
-class RawDataset(BaseModel):
-    """Raw dataset from a data provider."""
-    source_provider: str = Field(..., description="Name of data provider")
-    category: DataCategory = Field(..., description="Data category")
-    geometry_type: str = Field(..., description="Point, LineString, or Polygon")
-    features: List[Dict[str, Any]] = Field(default_factory=list, description="Raw features from provider")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Provider metadata")
+class Coordinates(BaseModel):
+    """Represents geographic coordinates [longitude, latitude]."""
+    lon: float = Field(..., ge=-180, le=180, description="Longitude")
+    lat: float = Field(..., ge=-90, le=90, description="Latitude")
+
+
+class Geometry(BaseModel):
+    """Represents GeoJSON geometry object."""
+    type: str = Field(..., description="Geometry type (e.g., 'Polygon', 'MultiPolygon')")
+    coordinates: List = Field(..., description="Coordinates array")
+    
+    @field_validator('type')
+    @classmethod
+    def validate_geometry_type(cls, v):
+        """Validate that geometry type is supported."""
+        allowed_types = ['Polygon', 'MultiPolygon', 'Point', 'LineString', 'MultiLineString']
+        if v not in allowed_types:
+            raise ValueError(f"Geometry type must be one of {allowed_types}, got {v}")
+        return v
 
 
 class Feature(BaseModel):
-    """Standardized feature in a dataset."""
-    id: str = Field(..., description="Feature identifier")
-    geometry: Dict[str, Any] = Field(..., description="GeoJSON geometry")
-    properties: Dict[str, Any] = Field(..., description="Standardized properties")
+    """Represents a GeoJSON feature with geometry and properties."""
+    type: str = Field(default="Feature", description="Feature type")
+    geometry: Geometry = Field(..., description="Feature geometry")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Feature properties")
+
+
+class Polygon(BaseModel):
+    """
+    Represents a GeoJSON polygon for analysis.
+    Validates structure, geometry, and size constraints.
+    """
+    type: str = Field(default="FeatureCollection", description="Type must be FeatureCollection")
+    features: List[Feature] = Field(..., description="Array of features")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]
+                        },
+                        "properties": {}
+                    }
+                ]
+            }
+        }
+
+
+class StandardizedFeature(BaseModel):
+    """Represents a standardized feature with normalized structure."""
+    type: str = Field(default="Feature")
+    geometry: Geometry
+    properties: Dict[str, Any]
+    source_provider: str = Field(..., description="Source data provider")
+    source_category: str = Field(..., description="Data category (buildings, roads, etc.)")
 
 
 class StandardizedDataset(BaseModel):
-    """Standardized dataset with common format."""
+    """Represents a standardized dataset with consistent structure across all providers."""
+    features: List[StandardizedFeature] = Field(default_factory=list)
+    source_provider: str = Field(..., description="Primary data provider")
     category: DataCategory = Field(..., description="Data category")
-    source_provider: str = Field(..., description="Original provider name")
-    features: List[Feature] = Field(default_factory=list, description="Standardized features")
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Dataset metadata (timestamp, CRS, count, etc.)"
-    )
+    feature_count: int = Field(default=0, description="Number of features")
+    crs: str = Field(default="EPSG:4326", description="Coordinate Reference System")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Provider-specific metadata")
 
 
 class RuleResult(BaseModel):
-    """Result from a rule execution."""
+    """Represents the result of a rule execution."""
     rule_id: str = Field(..., description="Unique rule identifier")
     rule_name: str = Field(..., description="Human-readable rule name")
     status: ProcessingStatus = Field(..., description="Execution status")
-    result: Dict[str, Any] = Field(default_factory=dict, description="Rule-specific results")
+    result: Dict[str, Any] = Field(default_factory=dict, description="Rule output data")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Execution metadata")
 
 
-class ModuleStatus(BaseModel):
-    """Status of a processing module."""
-    module_name: str = Field(..., description="Name of the module")
-    status: ProcessingStatus = Field(..., description="Execution status")
-    error_message: Optional[str] = Field(None, description="Error message if failed")
-    execution_time_ms: Optional[float] = Field(None, description="Execution time in milliseconds")
-
-
-class ErrorInfo(BaseModel):
-    """Error information in response."""
-    module: str = Field(..., description="Module where error occurred")
-    message: str = Field(..., description="Error message")
-    severity: str = Field(default="error", description="warning or error")
-
-
 class ProviderStatus(BaseModel):
-    """Status of a data provider."""
+    """Represents the status of a data provider."""
     provider_name: str = Field(..., description="Provider name")
-    status: str = Field(..., description="available, unavailable, or error")
-    error_message: Optional[str] = Field(None, description="Error message if failed")
-    data_retrieved: bool = Field(default=False, description="Whether data was successfully retrieved")
+    status: str = Field(..., description="Status (available, unavailable, timeout, rate_limited)")
+    error_message: Optional[str] = Field(None, description="Error message if applicable")
+    feature_count: int = Field(default=0, description="Number of features collected")
 
 
 class AnalysisResponse(BaseModel):
-    """Complete analysis response to return to frontend."""
-    request_id: str = Field(..., description="Unique request identifier")
-    status: ProcessingStatus = Field(..., description="Overall processing status")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
-    processing_time_ms: float = Field(..., description="Total processing time in milliseconds")
-    
-    analysis_summary: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="High-level analysis summary"
-    )
-    
-    land_information: Dict[str, RuleResult] = Field(
-        default_factory=dict,
-        description="All rule results organized by category"
-    )
-    
-    processing_status: Dict[str, ModuleStatus] = Field(
-        default_factory=dict,
-        description="Status of each processing module"
-    )
-    
-    provider_status: List[ProviderStatus] = Field(
-        default_factory=list,
-        description="Status of each data provider"
-    )
-    
-    errors: List[ErrorInfo] = Field(
-        default_factory=list,
-        description="List of errors if any occurred"
-    )
-
-
-class ValidationError(BaseModel):
-    """Validation error response."""
-    status: str = Field(default="error", description="Error status")
-    error_code: str = Field(..., description="Error code (VALIDATION_ERROR, etc.)")
-    error_message: str = Field(..., description="User-readable error message")
-    details: Dict[str, Any] = Field(default_factory=dict, description="Additional error details")
+    """
+    Complete analysis response with all required sections.
+    Sent to frontend after analysis completion.
+    """
+    status: str = Field(..., description="Overall analysis status (success, partial, failed)")
+    polygon_info: Dict[str, Any] = Field(default_factory=dict, description="Input polygon information")
+    analysis_summary: Dict[str, Any] = Field(default_factory=dict, description="Summary of analysis")
+    land_information: Dict[str, Any] = Field(default_factory=dict, description="Processed land information")
+    processing_status: Dict[str, str] = Field(default_factory=dict, description="Status of each processing module")
+    provider_status: List[ProviderStatus] = Field(default_factory=list, description="Status of each data provider")
+    error_summary: Optional[Dict[str, Any]] = Field(None, description="Error summary if any failures occurred")
+    timestamp: str = Field(..., description="ISO 8601 timestamp of analysis")

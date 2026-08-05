@@ -1,3 +1,7 @@
+# ===============================================================================
+# PYTHON
+# ===============================================================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -24,10 +28,9 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a python script from a temporary
-#  directory before injection.
 *.manifest
 *.spec
 
@@ -46,15 +49,6 @@ nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
-.hypothesis/
-.pytest_cache/
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 
 # Spyder project settings
 .spyderproject
@@ -80,98 +74,11 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Composer .tag files
-*.tag
-
-# Swift build artifacts
-*.swiftmodule
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.yaml
-
 # pyenv
 .python-version
 
-# pipenv
-#   According to pypa.io/pipenv/ is not a native windows
-#   file but it is worth weighing in about it.
-#   https://github.com/pypa/pipenv
-# !/app/.env
-
-# Poetry
-#   Similar to above, avoid the specifics of the tool on the OS.
-#   https://python-poetry.org/
-# !/app/.env
-
-# pdm
-#   Similar to above, avoid the specifics of the tool on the OS.
-#   https://pdm.fming.dev/
-#   .pdm.toml
-
-# Tools
-#   Versions
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.swp
-
-# OS
-#   Windows
-Thumbs.db
-Thumbs.db
-#   macOS
-.DS_Store
-#   Linux
-*~
-
-# Logs
-logs
-*.log
-
-# Environment variables
-.env
-.env.*
-!.env.example
-
-# IDE
-.vscode/
-.idea/
-*.sublime-workspace
-*.sublime-project
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Backup files
-*~
-*.bak
-*.tmp
-
-# Docker
-docker-compose.*.yml
-docker-compose.override.yml
-
-# Misc
-.cache
-nb-*/
-
-# Jupyter
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.yaml
-
-# pyenv
-.python-version
+# Hypothesis
+.hypothesis/
 
 # celery beat schedule file
 celerybeat-schedule
@@ -179,157 +86,161 @@ celerybeat-schedule
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# ===============================================================================
+# NODEJS / FRONTEND
+# ===============================================================================
 
-# IDE
-.vscode/
-.idea/
-*.sublime-workspace
-*.sublime-project
+# Node modules
+node_modules/
+frontend/node_modules/
 
-# Testing
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# docs
-/build/
-
-# Celery beat schedule file
-celerybeat-schedule.md
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# IDE
-.vscode/
-.idea/
-*.sublime-workspace
-*.sublime-project
-
-# Data / database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-*.log
+# npm
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.npm
+.yarn
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Build output
+frontend/dist/
+frontend/build/
 
-# Instrumentation logs used by lilypond
-*.flu
-*.mid
+# Package locks (frontend only)
+frontend/package-lock.json
+frontend/yarn.lock
 
-# MIDI files
-*.mid
+# ===============================================================================
+# VIRTUAL ENVIRONMENTS
+# ===============================================================================
 
-# Model files
-*.mtl
-*.obj
-*.stl
-*.fbx
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.env
 
-# Texture files
-*.png
-*.jpg
-*.jpeg
-*.tga
-*.bmp
-*.gif
+# ===============================================================================
+# IDE / EDITOR
+# ===============================================================================
 
-# Audio files
-*.wav
-*.mp3
-*.ogg
-*.flac
-
-# Video files
-# Project files
-*.ipr
-*.iml
-*.iws
-
-# Misc
-*.backup
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
 *~
 
-# Package Files
-*.7z
-*.dmg
-*.gz
-*.iso
-*.jar
-*.rar
-*.tar
-*.zip
+# ===============================================================================
+# OS GENERATED FILES
+# ===============================================================================
 
-# Logs and databases
-*.log
-*.sql
-*.sqlite
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
 
-# OS generated files
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs-vid
-Uploads:
+.AppleDouble
+.LSOverride
 
-# Temporary files
+# Linux
+*~
+
+# ===============================================================================
+# ENVIRONMENT VARIABLES
+# ===============================================================================
+
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.staging
+.env.production
+.env.production.local
+!.env.example
+
+# ===============================================================================
+# LOGS
+# ===============================================================================
+
+logs/
+*.log
+
+# ===============================================================================
+# TEMPORARY & BACKUP FILES
+# ===============================================================================
+
 *.tmp
 *.temp
-.DS_Store
-Thumbs.db
+*.bak
+*.backup
+*.orig
 
-# Node modules (just in case)
-node_modules/
+# ===============================================================================
+# DATABASE & DATA
+# ===============================================================================
+
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+
+# ===============================================================================
+# DEPLOYMENT & BUILD
+# ===============================================================================
+
+# Firebase
+.firebase/
+.firebaserc
+
+# Render
+.render/
+.renderbuild/
+
+# Docker
+docker-compose.override.yml
+docker-compose.*.yml
 
 # Build artifacts
 dist/
 build/
+*.tar
+*.tar.gz
+*.zip
 
-# Environment files
-.env
-.env.local
-.env.development
-.env.staging
-.env.production
+# ===============================================================================
+# SCRIPTS & CONFIGURATION
+# ===============================================================================
 
-# IDE
-.vscode/
-.idea/
-*.sublime-workspace
-*.sublime-project
+# Deployment logs
+scripts/*.log
 
-# Miscellaneous
-.DS_Store
-Thumbs.db
-*.swp
-*~
+# ===============================================================================
+# JUPYTER & IPYTHON
+# ===============================================================================
+
+.ipynb_checkpoints
+profile_default/
+ipython_config.yaml
+
+# ===============================================================================
+# MISC
+# ===============================================================================
+
+.cache
+nb-*/
+*.pyc

@@ -1,50 +1,66 @@
-[
-  {
-    "name": "osm_buildings",
+{
+  "osm_buildings": {
+    "id": "osm_buildings",
+    "name": "OSM Buildings",
     "enabled": true,
     "category": "buildings",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
-    "collector_class": "OSMBuildingsCollector"
+    "rate_limit_delay_ms": 2000,
+    "optional": false
   },
-  {
-    "name": "admin_boundaries",
+  "osm_admin_boundaries": {
+    "id": "osm_admin_boundaries",
+    "name": "Admin Boundaries",
     "enabled": true,
     "category": "admin",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
-    "collector_class": "AdminBoundariesCollector"
+    "rate_limit_delay_ms": 2000,
+    "optional": false
   },
-  {
-    "name": "land_cover",
+  "copernicus_land_cover": {
+    "id": "copernicus_land_cover",
+    "name": "Copernicus Land Cover",
     "enabled": true,
     "category": "land_cover",
-    "timeout_seconds": 60,
+    "api_endpoint": "https://stac.oam.dev",
+    "timeout_seconds": 45,
     "retry_count": 2,
-    "collector_class": "LandCoverCollector"
+    "optional": true
   },
-  {
-    "name": "osm_roads",
+  "osm_roads": {
+    "id": "osm_roads",
+    "name": "OSM Roads",
     "enabled": true,
     "category": "roads",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
-    "collector_class": "OSMRoadsCollector"
+    "rate_limit_delay_ms": 2000,
+    "optional": false
   },
-  {
-    "name": "osm_water",
+  "osm_water": {
+    "id": "osm_water",
+    "name": "OSM Water",
     "enabled": true,
     "category": "water",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
-    "collector_class": "OSMWaterCollector"
+    "rate_limit_delay_ms": 2000,
+    "optional": false
   },
-  {
-    "name": "elevation",
+  "usgs_elevation": {
+    "id": "usgs_elevation",
+    "name": "USGS Elevation",
     "enabled": true,
     "category": "elevation",
-    "timeout_seconds": 60,
+    "api_endpoint": "https://epqs.nationalmap.gov/v1/json",
+    "timeout_seconds": 45,
     "retry_count": 2,
-    "collector_class": "ElevationCollector"
+    "optional": false
   }
-]
+}

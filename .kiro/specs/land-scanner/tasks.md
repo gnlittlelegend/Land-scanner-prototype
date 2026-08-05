@@ -2,547 +2,1775 @@
 
 ## Overview
 
-This implementation plan breaks down the Land Scanner Prototype design into discrete coding tasks that build incrementally toward a complete, working system. The workflow progresses from foundation (configuration, basic API, core models) through data pipeline (collectors, standardization, rule engine) to integration and final testing.
+This implementation plan breaks down the Land Scanner Prototype design into discrete coding tasks that build incrementally toward a complete, working system. The workflow progresses from foundation (configuration, basic API, core models) through real data pipeline (production API collectors, standardization, rule engine) to integration and final testing.
 
-All tasks including property-based tests are required for comprehensive correctness validation. Tests are integrated alongside implementation to catch errors early and provide confidence that the system satisfies its formal specification.
+**Critical Principle**: All data collectors connect to real, production APIs. No mock data, no hardcoded test data. Every collector makes actual HTTP requests to live data providers.
 
 ## Tasks
 
 ### 1. Project Setup and Core Infrastructure
 
-- [ ] 1.1 Initialize project structure and dependencies
+- [ ] 1.1 Initialize project structure and production dependencies
   - Create directory structure: backend/, frontend/, config/
   - Set up Python virtual environment
-  - Install FastAPI, Uvicorn, Pydantic, Requests, Shapely, GeoPandas, PyProj
-  - Create requirements.txt with pinned versions
-  - Initialize backend package with __init__.py files
+  - Install production dependencies with pinned versions:
+    - FastAPI==0.104.1, Uvicorn, Pydantic
+    - Requests (for API calls to real providers)
+    - Shapely, GeoPandas (geospatial processing)
+    - PyProj (coordinate system transformations)
+    - Pytest, Hypothesis (testing)
+  - Create requirements.txt with exact versions
   - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 1.2 Set up configuration management
+- [ ] 1.2 Set up configuration management with real provider endpoints
   - Create ConfigManager class that loads settings from config/settings.json
-  - Implement provider configuration loading
+  - Implement provider configuration loading with real API endpoints
   - Support enabling/disabling providers via configuration
-  - Create config/providers.json with initial data provider specifications
+  - Create config/providers.json with production provider specifications:
+    - Overpass API endpoint (OSM buildings, roads, water, admin)
+    - Copernicus GLC endpoint (land cover)
+    - USGS elevation endpoint
+  - All endpoints must be real, production URLs (not mock)
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 1.3 Define core data models
-  - Create Python dataclasses/Pydantic models for:
-    - Polygon (GeoJSON wrapper)
-    - StandardizedDataset
-    - Feature
-    - RuleResult
-    - AnalysisResponse
-  - Ensure models have proper validation
+- [ ] 1.3 Define core data models with validation
+  - Create Python Pydantic models for:
+    - Polygon (GeoJSON wrapper with validation)
+    - StandardizedDataset (with required fields)
+    - Feature (with geometry and properties)
+    - RuleResult (with status and output)
+    - AnalysisResponse (with all required sections)
+  - All models must validate structure and types
   - _Requirements: 4.1, 6.2, 6.3_
 
 - [ ] 1.4 Create FastAPI application scaffold
-  - Initialize FastAPI app
-  - Set up CORS if needed for frontend
-  - Create basic error handling middleware
+  - Initialize FastAPI app with logging
+  - Set up CORS for frontend
+  - Configure error handling middleware
+  - Set up request/response logging
   - _Requirements: 9.1, 9.2, 9.3_
+
+### 1B. Test Data Centralization Infrastructure
+
+- [x] 1B.0 Create centralized test data management system
+  - Create TestDataManager class for managing shared test data
+  - Implement test data caching to avoid duplicate API calls
+  - Create fixtures directory: backend/tests/fixtures/
+  - Document all test data sources and generation methods
+  - Implement cache invalidation strategy (TTL-based, manual refresh)
+  - Create data snapshot storage (JSON files for real API responses)
+  - Implement data versioning for reproducible tests
+  - Create utility functions for data normalization across tests
+  - Create seed data for consistent polygon test inputs
+  - _Requirements: All (needed for all tests)_
+
+- [x] 1B.0.1 Define test polygon fixtures (centralized, reusable)
+  - Create fixtures/test_polygons.json with standard test polygons:
+    - Valid small polygon (25 m²)
+    - Valid medium polygon (10 km²)
+    - Valid large polygon (95 km²)
+    - Boundary polygon (exactly 10 m²)
+    - Boundary polygon (exactly 100 km²)
+    - Invalid small polygon (5 m²)
+    - Invalid large polygon (105 km²)
+    - High vertex count polygon (9,999 vertices)
+    - Over-limit vertex polygon (10,001 vertices)
+    - Equator crossing polygon
+    - Pole-near polygon
+    - Antimeridian crossing polygon
+    - Urban area polygon (real city location)
+    - Rural area polygon (real countryside location)
+    - Ocean area polygon (open water)
+    - Admin boundary polygon (real administrative region)
+    - Mixed terrain polygon (urban + rural + natural)
+  - Each fixture includes: GeoJSON, expected area (sqkm), location name, intended use
+  - All fixtures are REAL geographic locations (not synthetic)
+  - Document source of each fixture (coordinates, location reference)
+  - _Requirements: 1.0 through 9.0 (foundational for all tests)_
+
+- [x] 1B.0.2 Implement real provider data cache system
+  - Create fixtures/provider_responses/ directory
+  - Store real API responses for each provider + polygon combination:
+    - Overpass API responses for buildings (buildings_polygon_1.json, etc.)
+    - Overpass API responses for admin boundaries
+    - Overpass API responses for roads
+    - Overpass API responses for water
+    - Copernicus STAC API responses for land cover
+    - USGS elevation API responses
+  - Each cached response labeled with:
+    - Provider name
+    - Polygon fixture ID
+    - Timestamp (when cached)
+    - Data version (provider version)
+  - Implement ResponseCache class:
+    - get_cached_response(provider, polygon_id)
+    - cache_response(provider, polygon_id, response)
+    - refresh_cache(provider, polygon_id) — fetches fresh from real API
+    - get_cache_age(provider, polygon_id) — returns days since cache
+  - Implement automatic cache refresh:
+    - Refresh monthly (configurable)
+    - Manual refresh via test flag: --refresh-test-data
+    - Refresh on demand before important test runs
+  - Document cache management process
+  - _Requirements: 2.0 through 4.0 (for all real data tests)_
+
+- [x] 1B.0.3 Create test data generator for consistent variations
+  - Create TestPolygonGenerator class
+  - Generate polygon variations deterministically (not randomly):
+    - Seed-based generation (same seed = same polygon)
+    - Size variations: [10m², 50m², 100m², 500m², 1km², 5km², 10km², 50km², 100km²]
+    - Location variations: [equator, north pole region, south pole region, antimeridian, quadrants N/S/E/W, mixed]
+    - Shape variations: [triangle, square, pentagon, hexagon, complex, spiral, self-intersecting (invalid)]
+    - Coordinate precision: [0 decimals, 2 decimals, 6 decimals, 15 decimals]
+    - Vertex counts: [3, 4, 10, 100, 1000, 9999, 10000, 10001]
+  - Each variation identified by deterministic ID (not random UUID)
+  - Reproducible: same configuration = same polygon every time
+  - Document all variation dimensions
+  - _Requirements: 2.0 through 9.0 (for property-based tests)_
+
+- [x] 1B.0.4 Implement test data sharing protocol across tests
+  - Create shared test session fixture (pytest fixture)
+  - All tests in a session share:
+    - Same TestDataManager instance
+    - Same ResponseCache instance
+    - Same real API response data
+  - Tests register their data needs at start (declarative):
+    - `@needs_polygon("valid_small")`
+    - `@needs_provider_data("osm_buildings", "urban_polygon")`
+    - `@needs_real_api_call("overpass", "buildings", polygon_id)`
+  - System loads required data once, shares across tests
+  - Implement data dependency graph:
+    - Track which tests need which data
+    - Load minimum necessary data upfront
+    - Reuse data across tests (no duplication)
+  - Document data sharing patterns
+  - _Requirements: All (for efficient test execution)_
+
+- [x] 1B.0.5 Create test data validation and audit system
+  - Create TestDataValidator class
+  - Validate all cached data:
+    - Data structure compliance (JSON schema)
+    - Provider response format compliance
+    - Data completeness (no truncated responses)
+    - Timestamp validity (reasonable age)
+  - Implement audit log:
+    - Track which tests used which data
+    - Track data cache hits vs misses
+    - Track API calls (count and timing)
+  - Generate audit report:
+    - How many API calls made
+    - Cache hit rate
+    - Data reuse statistics
+    - Provider-specific statistics
+  - Implement assertions:
+    - `assert_cached_not_duplicated()` — verify no duplicate API calls in test run
+    - `assert_data_consistency(data_set_1, data_set_2)` — compare datasets
+    - `assert_same_input_same_output()` — verify idempotence
+  - _Requirements: All (for test reliability and debugging)_
+
+- [x] 1B.0.6 Document test data management for developers
+  - Create TESTING_DATA.md guide:
+    - How to use centralized test fixtures
+    - How to add new test polygons
+    - How to refresh provider data caches
+    - How to manage test data versions
+    - Cache refresh schedule and procedures
+    - Troubleshooting guide
+  - Create fixture matrix (which fixtures for which tests)
+  - Create provider cache status page (age of each cached response)
+  - Document how to run tests with/without real API calls
+  - _Requirements: All (for team knowledge)_
 
 ### 2. Polygon Validation Module
 
-- [ ] 2.1 Implement Polygon Validator
+- [ ] 2.1 Implement Polygon Validator with real geometry checking
   - Create PolygonValidator class with validate() method
-  - Validate GeoJSON structure and schema
-  - Validate polygon geometry (must be Polygon or MultiPolygon)
-  - Validate coordinates (valid ranges, proper format)
-  - Calculate polygon metadata (area, bounding box, centroid, CRS)
-  - Return Polygon object on success, raise ValidationError on failure
-  - _Requirements: 1.1, 1.2, 1.3, 1.4_
+  - Validate GeoJSON structure (RFC 7946 compliant)
+  - Validate polygon geometry (Polygon or MultiPolygon only)
+  - Validate coordinates: -180 to 180 (lon), -90 to 90 (lat)
+  - Verify linear ring is closed (first coord == last coord)
+  - Calculate polygon area in square kilometers
+  - Validate polygon area: 10 m² minimum (0.00001 km²), 100 km² maximum
+  - Validate vertex count: maximum 10,000 vertices
+  - Calculate polygon metadata: area (sqkm), bounding box, centroid, CRS
+  - Use Shapely for geometry validation and area calculation
+  - Return Polygon object on success, raise ValidationError on failure with detailed message about violations
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [ ] 2.2 Write property test for polygon validation
+- [ ] 2.2 Write comprehensive property test for polygon validation
   - **Property 1: Polygon Validation Consistency**
   - **Validates: Requirements 1.3, 1.4, 1.5, 1.6**
-  - Generate random valid GeoJSON polygons and verify acceptance
-  - Generate invalid polygons and verify rejection
-  - Verify error messages are descriptive
-  - Minimum 100 test iterations
-  - _Requirements: 1.3, 1.4_
+  - Use Hypothesis to generate random valid GeoJSON polygons across entire input space
+  - Verify system accepts valid polygons for all valid sizes and shapes
+  - Generate comprehensive set of invalid polygons (malformed, bad coordinates, edge cases)
+  - Verify system rejects ALL invalid polygons with specific descriptive errors
+  - Test COMPLETE size boundary range: 
+    - Exactly 10m² (minimum), just above 10m² (10.00001m²), just below minimum (9.99999m²)
+    - Exactly 100km² (maximum), just below 100km² (99.99999km²), just above maximum (100.00001km²)
+    - Full range between: 100m², 1km², 10km², 50km²
+  - Test vertex limits comprehensively: 
+    - 3 vertices (minimum valid), 4-100 vertices (normal range)
+    - 9,999-10,000 vertices (maximum edge cases)
+    - 10,001+ vertices (over limit), 0-2 vertices (under minimum)
+  - Test FULL coordinate validation range: 
+    - Exact boundaries: -180, -90, 180, 90 (all valid)
+    - Just outside boundaries: -180.00001, -90.00001, 180.00001, 90.00001 (invalid)
+    - Extreme out-of-bounds: -360, -180, 360, 181 (all invalid)
+    - Various precision: integer, 1 decimal, 8 decimals, 15 decimals
+  - Test polygon closure validation: 
+    - Properly closed rings (first == last), improperly closed rings (first != last)
+    - Test with various polygon shapes (convex, concave, spiral)
+  - Test GeoJSON RFC 7946 compliance: 
+    - Valid Polygon type, valid MultiPolygon type
+    - Invalid types: Point, LineString, Feature, FeatureCollection
+    - Valid feature structure vs invalid structure
+    - Valid properties vs missing properties
+  - Test special cases: 
+    - MultiPolygons with 1, 2, N polygons
+    - Nested structures (features within features)
+    - Empty feature collections, empty geometry arrays
+    - Null values in coordinates, null geometries
+  - Test projection/coordinate system edge cases:
+    - Polygons crossing antimeridian (180/-180 boundary)
+    - Polygons at poles (near ±90°)
+    - Mixed precision coordinates
+  - Test real-world polygons (city boundaries, administrative regions, small areas, large regions)
+  - MINIMUM 500 test iterations (1000+ recommended for boundary testing)
+  - Coverage MUST be 100% of acceptance criteria with complete boundary matrix
+  - Test EVERY combination of boundary conditions (all limits tested together and separately)
+  - _Requirements: 1.3, 1.4, 1.5, 1.6_
+  - **MANDATORY**: Exhaustive boundary and edge case testing - no corner case skipped
 
 - [ ] 2.3 Implement /analyze endpoint skeleton
-  - Create POST /analyze endpoint
-  - Accept GeoJSON polygon in request body
+  - Create POST /analyze endpoint accepting GeoJSON polygon
   - Call PolygonValidator
-  - Return validation error if polygon is invalid (HTTP 400/422)
+  - Return HTTP 400/422 with validation error if invalid
   - Proceed to data collection if valid
   - _Requirements: 9.1, 9.4_
 
-### 3. Data Collection Infrastructure
+### 3. Real Data Collection Infrastructure
 
-- [ ] 3.1 Create DataCollector abstract base class
+- [x] 3.1 Create DataCollector abstract base class with production API support
   - Define collector interface: collect(polygon) -> RawDataset
-  - Define RawDataset model with source_provider, category, features, metadata
-  - Create generic error handling for collectors
+  - Define RawDataset model with: source_provider, category, features, metadata
+  - Implement HTTP request handling with timeout management
+  - Implement exponential backoff retry logic
+  - Create generic error handling for collector failures
+  - All collectors must use real HTTP requests (no mock adapters)
   - _Requirements: 2.3, 2.4, 2.7_
 
-- [ ] 3.2 Implement Data Source Manager
+- [ ] 3.2 Implement Data Source Manager with real provider coordination
   - Create DataSourceManager class
-  - Load enabled providers from configuration
-  - Execute all enabled collectors concurrently or sequentially (based on design)
+  - Load enabled providers from configuration (with real endpoints)
+  - Execute all enabled collectors sequentially
+  - Add rate limit delays between requests (2-5 seconds)
   - Aggregate results from all collectors
-  - Handle collector failures gracefully
-  - Continue if optional providers fail, fail only if all critical providers fail
-  - Return aggregated RawDataCollection
+  - Handle real provider failures: timeouts, rate limits, API errors
+  - Continue processing if optional providers fail
+  - Fail only if all critical providers unavailable
+  - Return aggregated RawDataCollection with provider status
   - _Requirements: 2.1, 2.2, 2.5, 2.6, 2.7_
 
-- [ ] 3.3 Write property test for data collection completeness
-  - **Property 2: Data Collection Completeness**
-  - **Validates: Requirements 2.1, 2.2, 2.7**
-  - Generate random polygons and verify all enabled collectors are queried
-  - Verify partial success doesn't crash system
-  - Minimum 100 test iterations
-  - _Requirements: 2.1, 2.2_
+- [ ] 3.3 Write comprehensive property test for real data collection
+  - **Property 2: Real Data Collection Completeness**
+  - **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.7**
+  - Test polygons across ENTIRE geographic range:
+    - Equator (lat=0°), North Pole (lat≈90°), South Pole (lat≈-90°)
+    - All longitudes: -180°, -90°, 0°, 90°, 180°
+    - Mixed coordinates: all quadrants (NE, NW, SE, SW)
+    - Crosses antimeridian (lon > 180 or < -180 wrapping)
+  - Verify ALL enabled collectors EXECUTE for each polygon:
+    - Monitor HTTP calls to verify each provider is contacted
+    - Count actual API calls, verify N calls for N enabled collectors
+    - Verify no API calls to disabled collectors
+    - Test with all providers enabled (6 calls expected)
+    - Test with 5 enabled (5 calls), 4 enabled, etc.
+  - Verify results aggregated WITHOUT DATA LOSS from all collectors:
+    - Collect data from N providers, aggregate, verify all N results present
+    - Test aggregation with 1 provider, 2, 3, ... N providers
+    - Verify no data overwritten/lost in aggregation process
+    - Check data structure consistency across all providers
+  - Test partial success COMPLETELY:
+    - 1 provider fails: remaining 5 succeed (test all 6 combinations)
+    - 2 providers fail: remaining 4 succeed (test multiple combinations)
+    - 3 providers fail: remaining 3 succeed (test multiple combinations)
+    - Verify partial results returned correctly with provider status accurate
+  - Test timeout handling EXHAUSTIVELY:
+    - Simulate 1 provider timeout: verify retry executes, succeeds on retry
+    - Simulate timeout + recovery: timeout first, then succeeds
+    - Simulate permanent timeout: verify max retry reached, logged, error returned
+    - Test timeout with various durations: 1s, 5s, 30s
+    - Verify other collectors continue despite timeout
+  - Test rate limit delays (HTTP 429):
+    - Simulate single 429 response: verify retry after delay succeeds
+    - Simulate multiple 429 responses: verify exponential backoff applied
+    - MEASURE delays between requests: verify configured delays respected
+    - Test rate limit persistence: multiple polygons in succession
+  - Test response parsing EXHAUSTIVELY for each provider format:
+    - OSM Overpass responses: verify buildings, roads, water parsing
+    - Copernicus GLC responses: verify raster→vector conversion
+    - USGS elevation responses: verify elevation value extraction
+    - Test with valid complete responses from each provider
+    - Test with partial responses (missing optional fields)
+    - Test with extra unexpected fields (robustness)
+  - Test error handling for EVERY provider error type:
+    - HTTP 404 (endpoint not found): verify error logged, collection fails gracefully
+    - HTTP 500 (server error): verify retry, eventual failure if persistent
+    - HTTP 503 (service unavailable): verify timeout, failure handling
+    - Network timeout: verify timeout handling, no infinite wait
+    - Connection refused: verify error logged
+    - Malformed JSON: verify parse error, handling
+    - Missing required fields: verify validation error
+    - Null/empty responses: verify handling
+    - Partial/truncated responses: verify robustness
+  - Test with DIVERSE polygon locations:
+    - Urban areas (dense buildings/roads): high data density
+    - Rural areas (sparse buildings/roads): low data density
+    - Ocean areas (no buildings/roads): boundary cases
+    - Administrative boundaries: admin data present
+    - Elevation change areas: diverse elevation data
+    - Mixed (urban + rural + natural): realistic scenario
+    - Exact boundary edges: edge cases
+  - Test collection with disabled collectors:
+    - Disable each provider individually, verify it doesn't execute
+    - Disable multiple providers, verify they don't execute
+    - Re-enable providers, verify they execute again
+  - Test response metadata preservation:
+    - Verify source_provider recorded correctly
+    - Verify timestamp recorded
+    - Verify API version/endpoint recorded
+  - Test rate limit retry backoff algorithm:
+    - First retry: T + delay1 (2 sec default)
+    - Second retry: T + delay1 + delay2 (4 sec)
+    - Verify exponential backoff, not linear
+  - Test collection performance:
+    - Measure time for full collection with all providers
+    - Verify completes within reasonable time (< 2 minutes)
+    - Verify no memory leaks with multiple sequential collections
+  - MINIMUM 500 test iterations (1000+ recommended for geographic and provider combinations)
+  - Coverage MUST include: all providers, all geographic regions, all error types, all failure combinations
+  - Test EVERY error type for EVERY provider (6 providers × 10 error types = 60 test combinations minimum)
+  - _Requirements: 2.1, 2.2, 2.3, 2.4_
+  - **MANDATORY**: Exhaustive verification - complete data collection from all providers with no loss
 
-### 4. Data Collectors (Provider Integration)
+### 4. Real Production Data Collectors
 
-- [ ] 4.1 Implement OSM Buildings Collector
-  - Query OpenStreetMap Overpass API for buildings
-  - Accept polygon, query buildings within polygon bounds
-  - Return raw features with source attribution
-  - Handle provider unavailability gracefully
+**CRITICAL**: Each collector must connect to actual live production APIs. No mock data.
+
+- [ ] 4.1 Implement OSM Buildings Collector with real Overpass API
+  - Create OSMBuildingsCollector class extending DataCollector
+  - Build Overpass QL query: buildings within bounding box
+  - Query production Overpass API endpoint: http://overpass-api.de/api/interpreter
+  - Handle Overpass API responses: timeout, rate limits, query execution time
+  - Implement retry with longer timeout on first failure
+  - Validate response is valid GeoJSON
+  - Return raw features with OSM attribution
+  - Handle provider unavailability gracefully (don't crash, log error)
+  - **Test**: Query real Overpass API with test polygon
   - _Requirements: 12.3, 2.3, 2.4_
 
-- [ ] 4.2 Implement Administrative Boundaries Collector
-  - Query administrative boundaries (using OSM or similar)
-  - Accept polygon, find intersecting administrative regions
+- [ ] 4.2 Implement Administrative Boundaries Collector with real OSM data
+  - Create AdminBoundariesCollector class extending DataCollector
+  - Build Overpass QL query: administrative boundaries (admin_level 2, 4, 6)
+  - Query production Overpass API
+  - Parse response to extract country, state, district info
+  - Handle Overpass timeouts and rate limits
   - Return administrative features with source attribution
+  - **Test**: Query real Overpass API with test polygon
   - _Requirements: 12.1, 2.3, 2.4_
 
-- [ ] 4.3 Implement Land Cover Collector
-  - Query land cover data (e.g., Copernicus GLC or similar)
-  - Accept polygon, retrieve land cover classification
-  - Return features with source attribution
+- [ ] 4.3 Implement Land Cover Collector with real Copernicus STAC API
+  - Create LandCoverCollector class extending DataCollector
+  - Access Copernicus Global Land Cover data via STAC API
+  - Search STAC catalog for GLC datasets matching polygon bounds and date range
+  - Download GeoTIFF file for polygon area
+  - Vectorize raster features into polygon geometries
+  - Classify pixels into standardized land cover categories
+  - Return 100m resolution land cover features
+  - Handle STAC API authentication if required
+  - Handle GeoTIFF download and processing errors
+  - Implement fallback to alternative STAC endpoints if primary fails
+  - **Test**: Query real Copernicus STAC API with test polygon
   - _Requirements: 12.2, 2.3, 2.4_
 
-- [ ] 4.4 Implement Road Network Collector
-  - Query road network data (OSM roads)
-  - Accept polygon, retrieve intersecting roads
-  - Return road features with source attribution
+- [ ] 4.4 Implement Road Network Collector with real OSM roads
+  - Create RoadCollector class extending DataCollector
+  - Build Overpass QL query: all ways with highway tags
+  - Query production Overpass API
+  - Extract road classification (primary, secondary, tertiary, etc.)
+  - Handle Overpass rate limits and timeouts
+  - Return road network features with classification
+  - **Test**: Query real Overpass API with test polygon
   - _Requirements: 12.4, 2.3, 2.4_
 
-- [ ] 4.5 Implement Water Bodies Collector
-  - Query water features (OSM waterways/water areas)
-  - Accept polygon, retrieve intersecting water features
-  - Return water features with source attribution
+- [ ] 4.5 Implement Water Bodies Collector with real OSM water
+  - Create WaterCollector class extending DataCollector
+  - Build Overpass QL query: waterways and water areas
+  - Query production Overpass API
+  - Extract water type (river, lake, canal, pond, etc.)
+  - Handle Overpass timeouts and rate limits
+  - Return water features with type classification
+  - **Test**: Query real Overpass API with test polygon
   - _Requirements: 12.5, 2.3, 2.4_
 
-- [ ] 4.6 Implement Elevation Data Collector
-  - Query elevation/DEM data (USGS, GEBCO, or similar)
-  - Accept polygon, retrieve elevation data
-  - Return elevation features with source attribution
+- [ ] 4.6 Implement Elevation Collector with real USGS data
+  - Create ElevationCollector class extending DataCollector
+  - Query real USGS Elevation Point Query Service API
+  - Endpoint: https://epqs.nationalmap.gov/v1/json
+  - Implement grid-based sampling within polygon area (500m spacing)
+  - For each sampled point: query latitude, longitude, units=Meters
+  - Collect elevation values for all sampled points
+  - Calculate min, max, mean elevation from samples
+  - Handle real API timeouts and errors gracefully
+  - Return elevation features with elevation values
+  - Test with multiple polygons (various locations)
+  - Verify API rate limit handling (1-2 second delays)
+  - **Test**: Query real USGS EPQS API with test polygon at multiple zoom levels
   - _Requirements: 12.6, 2.3, 2.4_
 
-- [ ] 4.7 Write property test for provider independence
+- [ ] 4.7 Write comprehensive property test for provider independence
   - **Property 3: Provider Independence in Collection**
-  - **Validates: Requirements 2.5, 2.6**
-  - Simulate various provider failures
-  - Verify system continues with available providers
-  - Verify no cascading failures between collectors
-  - Minimum 100 test iterations
-  - _Requirements: 2.5, 2.6_
+  - **Validates: Requirements 2.5, 2.6, 2.7**
+  - Simulate EVERY provider failure type systematically:
+    - HTTP timeout (actual delay verification): 30s timeout on OSM, USGS, Copernicus
+    - HTTP 429 (rate limit): verify detection, backoff, retry
+    - HTTP 500 (server error): simulate internal server error
+    - HTTP 502 (bad gateway): simulate gateway error
+    - HTTP 503 (unavailable): simulate service maintenance
+    - HTTP 404 (not found): simulate endpoint deletion
+    - Connection refused: TCP connection refused immediately
+    - Connection timeout: TCP connection hangs (distinct from response timeout)
+    - Network error (DNS failure): hostname unresolvable
+    - Malformed response: JSON syntax error
+    - Truncated response: response cut off mid-stream
+    - Empty response: HTTP 200 but empty body
+    - Null values in required fields: incomplete response
+    - Unexpected field types: wrong data type in response
+  - Test COMPLETE failure matrix:
+    - Single provider fails: OSM buildings only - verify 5 others continue
+    - Two providers fail: OSM + Copernicus - verify others continue
+    - Three providers fail: OSM + Copernicus + USGS - verify others continue
+    - All combinations of provider failures (up to N-1 fails, all succeed)
+    - All N providers fail simultaneously: system fails gracefully
+  - Verify system CONTINUES with available providers after each failure:
+    - Provider failure doesn't halt entire pipeline
+    - Other providers' data used for analysis
+    - Partial results still meaningful
+    - System returns partial response with status indicating failure
+  - Verify NO CASCADING failures (one provider doesn't cause others to fail):
+    - Provider A timeout doesn't affect Provider B response
+    - Provider B error doesn't cause Provider C timeout
+    - Provider failure doesn't corrupt other providers' data
+    - One provider's malformed response doesn't affect others
+    - Test with real network conditions (use network stub/mock where needed)
+  - Test retry logic THOROUGHLY:
+    - Verify retry count respected (max 2-3 retries per provider)
+    - Verify retry delay increases (exponential backoff)
+    - Verify retry succeeds when provider recovers
+    - Verify permanent failure after retries exhausted
+    - Test each provider independently for retry behavior
+    - Test retry with various failure types
+  - Test timeout VERIFICATION:
+    - Verify timeout value respected for each provider
+    - Measure actual timeout (verify not exceeding configured timeout ± 100ms)
+    - Verify system doesn't hang indefinitely on timeout
+    - Test timeout doesn't affect other concurrent operations
+    - Test timeout recovery
+  - Test EACH PROVIDER can fail independently:
+    - Fail OSM buildings only: test 6 times (once for each provider alone)
+    - Fail each provider individually: verify others unaffected (6 tests)
+    - Verify pattern holds: any single provider failure is independent
+  - Test recovery scenarios:
+    - Provider temporarily unavailable then recovers: verify re-attempts succeed
+    - Multiple failures then recovery: provider used on second polygon analysis
+    - Intermittent failures: random failures and successes
+  - Test failure combinations:
+    - Overpass fails while USGS works: building + admin fail, elevation works
+    - Copernicus fails with others: land cover missing but other data present
+    - Multiple Overpass-based collectors fail (buildings + admin + roads + water together)
+    - Check data consistency: no data duplication, no missing required pieces
+  - Test partial results returned correctly:
+    - With complete failure status for each failed provider
+    - With available data from successful providers
+    - With meaningful analysis from partial data
+    - Response structure consistent (same JSON fields, even if some empty)
+  - Test data integrity during failures:
+    - No data corruption when provider fails
+    - No data mixing between providers
+    - Aggregation doesn't duplicate or lose data
+  - Test error messages for failures:
+    - User receives clear message about which provider failed
+    - Error messages distinguish between different failure types
+    - Error messages suggest next steps (e.g., "Please try again")
+  - MINIMUM 500 test iterations (1000+ recommended for complete failure matrix)
+  - Coverage MUST include: all providers, all failure types, all combinations
+  - Test EVERY provider with EVERY error type (6 × 14 = 84 base combinations)
+  - Test interaction patterns (failures in sequence, parallel, delayed)
+  - _Requirements: 2.5, 2.6, 2.7_
+  - **MANDATORY**: Exhaustive provider independence validation - one provider's failure never affects others
 
 ### 5. Data Validation Module
 
-- [ ] 5.1 Implement data validation for collected datasets
+- [ ] 5.1 Implement data validation for real collected datasets
   - Create DataValidator class
-  - Validate dataset structure matches RawDataset model
-  - Check for empty datasets
-  - Detect missing required fields
-  - Record validation status (success, partial, failed)
+  - Validate dataset structure matches expected schema
+  - Check for empty datasets (no features)
+  - Check for missing required fields
+  - Check for invalid geometries
+  - Record validation status: success, empty, invalid, partial
+  - Log any validation issues
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 5.2 Write unit tests for edge cases in data validation
-  - Test empty datasets
-  - Test datasets with errors
-  - Test missing critical fields
-  - Verify error messages are readable
+- [ ] 5.2 Write comprehensive unit tests for real data edge cases
+  - Test validation with real Overpass API responses
+  - Test empty datasets (valid JSON but no features)
+  - Test datasets with malformed features
+  - Test missing required fields in real responses
+  - Test datasets with partial data (some fields missing)
+  - Test validation status recording (success, empty, invalid, partial)
+  - Test error logging for each validation failure type
+  - Verify error messages are readable and helpful for all edge cases
+  - Test with real provider responses from all collectors
   - _Requirements: 3.2, 3.3, 3.4_
 
 ### 6. Data Standardization Module
 
-- [ ] 6.1 Implement Data Standardizer core
+- [ ] 6.1 Implement Data Standardizer core for real provider data
   - Create Standardizer class with standardize(raw_dataset) method
-  - Normalize all coordinate systems to WGS84 (EPSG:4326)
-  - Convert all geometries to standard format
-  - Return StandardizedDataset objects
+  - Normalize all coordinate systems to WGS84 (EPSG:4326) using PyProj
+  - Convert all geometries to standard format (GeoJSON)
+  - Normalize field names to lowercase_underscore convention
+  - Preserve source provider attribution and metadata
+  - Handle provider-specific quirks and variations
+  - Return StandardizedDataset objects with validation
   - _Requirements: 4.1, 4.3, 4.4_
 
-- [ ] 6.2 Implement field normalization for Buildings
+- [ ] 6.2 Implement field normalization for real OSM Building data
   - Create buildings-specific standardization rules
-  - Normalize building feature properties to common schema
-  - Map provider-specific fields to standardized field names
+  - Normalize OSM building properties: name, type, height, etc.
+  - Map OSM "building" tag values to standardized types
+  - Validate standardized output structure
   - _Requirements: 4.2, 4.4_
 
-- [ ] 6.3 Implement field normalization for Administrative Boundaries
+- [ ] 6.3 Implement field normalization for real OSM Admin data
   - Create admin-specific standardization rules
-  - Normalize administrative boundary properties
-  - Map provider fields to standardized fields (country, state, district, etc.)
+  - Extract administrative hierarchy from OSM tags
+  - Normalize admin_level tags to country/state/district
+  - Map OSM admin data to standardized format
   - _Requirements: 4.2, 4.4_
 
-- [ ] 6.4 Implement field normalization for Land Cover
+- [ ] 6.4 Implement field normalization for real Copernicus Land Cover
   - Create land cover-specific standardization rules
-  - Normalize land cover classification properties
-  - Map provider land cover codes to standardized categories
+  - Map Copernicus land cover codes to standardized categories
+  - Normalize coverage percentages
+  - Handle raster-to-vector conversion if needed
   - _Requirements: 4.2, 4.4_
 
-- [ ] 6.5 Implement field normalization for Roads
+- [x] 6.5 Implement field normalization for real OSM Roads
   - Create road-specific standardization rules
-  - Normalize road properties (type, classification, etc.)
-  - Map provider road types to standardized categories
+  - Normalize OSM highway tag values to standardized types
+  - Extract road classification from OSM tags
+  - Map OSM road data to standardized format
   - _Requirements: 4.2, 4.4_
 
-- [ ] 6.6 Implement field normalization for Water Bodies
+- [x] 6.6 Implement field normalization for real OSM Water
   - Create water-specific standardization rules
+  - Map OSM waterway tags to standardized water types
   - Normalize water feature properties
-  - Map provider water types to standardized categories
+  - Extract water classification from OSM data
   - _Requirements: 4.2, 4.4_
 
-- [ ] 6.7 Implement field normalization for Elevation
+- [ ] 6.7 Implement field normalization for real Elevation data
   - Create elevation-specific standardization rules
-  - Normalize elevation data values and metadata
+  - Normalize elevation values and units
+  - Standardize elevation metadata and sampling information
   - _Requirements: 4.2, 4.4_
 
-- [ ] 6.8 Write property test for data standardization normalization
+- [ ] 6.8 Write comprehensive property test for standardization of real data
   - **Property 4: Data Standardization Normalization**
   - **Validates: Requirements 4.2, 4.3, 4.4**
-  - Generate raw datasets from various providers
-  - Verify all standardized outputs use WGS84
-  - Verify field names are normalized consistently
-  - Minimum 100 test iterations
-  - _Requirements: 4.2, 4.3_
+  - Use ACTUAL raw provider data from REAL API responses (not mock data):
+    - Collect real responses from OSM Overpass API (buildings, admin, roads, water)
+    - Collect real responses from Copernicus STAC API (land cover data)
+    - Collect real responses from USGS Elevation API (elevation points)
+    - Use complete, unmodified API responses as test inputs
+  - Verify EVERY standardized output uses WGS84 (EPSG:4326):
+    - Test output CRS is EPSG:4326 without exception
+    - Test with inputs in different CRS (if provider uses different CRS)
+    - Verify coordinate transformation mathematically accurate (tolerance ±0.000001°)
+    - Test coordinate order (lon/lat) is correct after transformation
+    - Test multiple CRS conversions don't compound errors
+  - Verify field names normalized CONSISTENTLY to lowercase_underscore:
+    - Test ALL fields from each provider:
+      - OSM: building=yes → building_type, name → name, height → height_meters
+      - Copernicus: LC_TYPE → land_cover_type, CONFIDENCE → confidence_score
+      - USGS: elevation → elevation_meters, sample_date → sampling_date
+    - Verify NO raw provider field names in output
+    - Verify NO mixed case (no camelCase, PascalCase, UPPERCASE)
+    - Verify underscores not spaces or hyphens
+    - Test all 6 data categories separately and together
+  - Verify metadata PRESERVED with exactness:
+    - source_provider: captured exactly (OSM, Copernicus, USGS, etc.)
+    - timestamp: recorded accurately (ISO8601 format)
+    - CRS: original CRS recorded, output CRS recorded
+    - Provider version: captured accurately
+    - Data quality/confidence: preserved if available
+  - Test standardization EXHAUSTIVELY for all 6 data categories:
+    - Buildings: building_type, height, material, levels
+    - Admin: country, state, district, admin_level
+    - Land cover: land_cover_type, confidence, pixel_count
+    - Roads: road_type, road_class, name, surface
+    - Water: water_type, name, flow_rate (if available)
+    - Elevation: elevation_meters, sample_spacing, accuracy
+  - Test EACH provider's specific field mapping rules:
+    - OSM buildings: building=yes|apartments|house|commercial... → standardized type
+    - OSM admin: admin_level 2|4|6|... → country|state|district
+    - Copernicus codes (10=urban, 20=crop, 30=tree...): → standardized names
+    - USGS elevation: point values → grid statistics (min/max/mean)
+    - Test mapping completeness: every input value has output value
+    - Test no value loss or truncation in mapping
+  - Test CRS conversion FROM multiple input reference systems:
+    - Test EPSG:4326 input (already WGS84): verify unchanged
+    - Test EPSG:3857 input (Web Mercator): verify correct transformation
+    - Test EPSG:2154 input (France): verify correct transformation
+    - Test local projections: verify conversion possible
+    - Test with extreme coordinates: poles, antimeridian
+    - Verify mathematical accuracy of conversions
+  - Test geometry format normalization:
+    - Ensure consistent GeoJSON output structure:
+      - type: "Feature" or "FeatureCollection"
+      - geometry: GeoJSON geometry object
+      - properties: standardized field names
+      - coordinates: [lon, lat] order
+    - Test with all geometry types: Point, LineString, Polygon, MultiPolygon
+    - Verify no other formats in output (no WKT, no GeoTIFF metadata)
+    - Test geometry validity maintained after standardization
+  - Verify NO raw provider formats leak into standardized output:
+    - No OSM tags like building=yes, highway=primary
+    - No Copernicus codes like 10 (should be urban, not 10)
+    - No USGS format fields like metadata_url
+    - No raw API response structure (no nested provider objects)
+    - Scan output for provider-specific keywords (overpass, copernicus, gebco, epqs)
+  - Test round-trip consistency:
+    - Standardize data once: Result A
+    - Standardize same raw data again: Result B
+    - Verify A == B (idempotence)
+    - Repeat multiple times: all results identical
+  - Test with edge cases in provider data:
+    - Missing optional fields: standardize handles gracefully
+    - Extra unexpected fields: standardize ignores gracefully
+    - Null values: standardize treats as missing data
+    - Empty strings: standardize treats as no value
+    - Very long strings: standardize preserves fully
+    - Special characters: standardize preserves correctly (ñ, é, 中文)
+  - Test standardization doesn't alter data meaning:
+    - Building heights preserved accurately (no rounding)
+    - Coverage percentages preserved accurately
+    - Administrative hierarchy preserved correctly
+    - Coordinate precision maintained (no unintended rounding)
+  - Test all 6 categories together:
+    - Standardize buildings, admin, land_cover, roads, water, elevation together
+    - Verify no interference between categories
+    - Verify categories don't share field names inappropriately
+    - Verify complete output structure with all categories
+  - MINIMUM 500 test iterations per provider type (1000+ recommended for all categories combined)
+  - Coverage MUST be 100% of provider types, field mappings, CRS conversions
+  - Test EVERY field from EVERY provider (all mappings)
+  - _Requirements: 4.2, 4.3, 4.4_
+  - **MANDATORY**: Comprehensive standardization validation across all 6 data types from all providers
 
-- [ ] 6.9 Write property test for standardized data model consistency
+- [x] 6.9 Write comprehensive property test for standardized model consistency
   - **Property 5: Standardized Data Model Consistency**
   - **Validates: Requirements 4.1, 4.5, 4.6**
-  - Generate standardized datasets
-  - Verify schema compliance regardless of source
-  - Verify never expose raw provider formats
-  - Minimum 100 test iterations
-  - _Requirements: 4.1, 4.5_
+  - Generate standardized datasets from ACTUAL real provider data (all 6 data types):
+    - Buildings from real Overpass API responses
+    - Admin boundaries from real Overpass API responses
+    - Land cover from real Copernicus STAC data
+    - Roads from real Overpass API responses
+    - Water from real Overpass API responses
+    - Elevation from real USGS API responses
+  - Verify COMPLETE schema compliance regardless of source:
+    - Test all 6 data types exhaustively (buildings, admin, land_cover, roads, water, elevation)
+    - Every dataset MUST have these fields: category, source_provider, features, metadata
+    - category: must be one of the 6 valid types
+    - source_provider: must be OSM, Copernicus, or USGS
+    - features: must be array (can be empty but structure must exist)
+    - metadata: must contain timestamp, crs, record_count
+    - Verify no extra unexpected top-level fields
+    - Test with datasets of all sizes: empty (0 features), small (1), medium (100), large (10000+)
+  - Verify NO raw provider formats in output:
+    - Scan output for raw OSM tag formats (no "building=yes", no "admin_level=2")
+    - Scan output for Copernicus codes (no "10", "20", "30" as category values)
+    - Scan output for provider API structures (no "properties" nesting with provider data)
+    - Scan output for provider-specific keywords (overpass, copernicus, gebco, epqs, stac, wms)
+    - Test with regex patterns to detect common provider formats
+    - Verify 100% clean output (zero provider-specific artifacts)
+  - Verify ALL required fields present ALWAYS:
+    - category: present in every dataset, value valid
+    - source_provider: present in every dataset, value valid
+    - features: present in every dataset, is array (empty OK)
+    - metadata: present in every dataset, is object
+    - Each feature MUST have: id, geometry, properties
+    - Each feature geometry MUST have: type, coordinates
+    - Each feature properties MUST have: type (or equivalent for category)
+    - Test 100 datasets of each type: verify fields present in all
+  - Test COMPLETE coverage of all categories:
+    - Buildings category: test ≥10 dataset instances
+    - Admin category: test ≥10 dataset instances
+    - Land cover category: test ≥10 dataset instances
+    - Roads category: test ≥10 dataset instances
+    - Water category: test ≥10 dataset instances
+    - Elevation category: test ≥10 dataset instances
+    - Verify each category has correct structure for its type
+  - Test EDGE CASES:
+    - Empty datasets (features array empty): verify structure still valid
+    - Single feature datasets: verify not just array concatenation
+    - Very large datasets (10000+ features): verify structure maintained
+    - Datasets with minimal metadata: verify minimum fields present
+    - Datasets with rich metadata: verify no extra unexpected fields
+    - Datasets with null properties: verify handling
+    - Datasets with missing optional properties: verify graceful handling
+  - Test LARGE datasets (many features - test scalability):
+    - Dataset with 1000 features: verify structure intact
+    - Dataset with 10000 features: verify structure intact
+    - Dataset with 100000 features: verify structure not corrupted
+    - Test memory efficiency: verify no excessive copies or duplication
+    - Test JSON serialization: ensure outputs can be JSON serialized
+  - Test geometry validation in standardized format:
+    - All geometry types must be valid GeoJSON:
+      - Point: coordinates [lon, lat]
+      - LineString: coordinates [[lon, lat], ...]
+      - Polygon: coordinates [[[lon, lat], ...]]
+      - MultiPolygon: coordinates [[[[lon, lat], ...]]]
+    - Verify coordinate order (lon/lat) correct
+    - Verify coordinate ranges valid (-180/-90 to 180/90)
+    - Verify geometry objects have required fields (type, coordinates)
+    - Test with real geometries from all providers
+  - Verify source attribution preserved EXACTLY:
+    - source_provider value matches original provider
+    - metadata contains original timestamp (if available)
+    - metadata contains provider version (if available)
+    - No information loss in attribution
+    - Test with all 3 provider types
+  - Verify timestamps use ISO8601 FORMAT:
+    - Format: YYYY-MM-DDTHH:MM:SSZ or with timezone
+    - Test timestamps parseable as valid dates
+    - Test timezone information consistent
+    - Test multiple timestamp formats handled correctly
+  - Verify field consistency ACROSS all datasets:
+    - Same field names used in all datasets (when applicable)
+    - Same structure for equivalent fields across providers
+    - Properties use consistent naming convention (lowercase_underscore)
+    - Test 100+ datasets: verify consistent field naming
+  - Test property field types consistency:
+    - Numeric fields are numbers (not strings)
+    - String fields are strings (not numbers)
+    - Boolean fields are booleans (true/false, not 1/0 or "yes"/"no")
+    - Array fields are arrays (not comma-separated strings)
+    - Type consistency across all instances
+  - Test round-trip parsing:
+    - Standardized data serialized to JSON
+    - JSON parsed back into objects
+    - Verify structure identical after round-trip
+    - Test multiple serialization cycles: A → JSON → A → JSON → A
+  - Test with real mixed data:
+    - Combine data from all 6 providers
+    - Verify all maintain consistent structure together
+    - Verify no interference between different provider data
+  - MINIMUM 500 test iterations per category (1000+ recommended for all categories combined)
+  - Coverage MUST include: all categories, all field combinations, all edge cases
+  - Test EVERY field of EVERY category (comprehensive matrix coverage)
+  - _Requirements: 4.1, 4.5, 4.6_
+  - **MANDATORY**: Exhaustive model consistency validation across all data sources - perfect structural uniformity
 
 ### 7. Rule Engine Module
 
 - [ ] 7.1 Implement Rule Engine core orchestrator
   - Create RuleEngine class
-  - Load all enabled rules from configuration or registry
+  - Load all enabled rules from registry
   - Execute rules sequentially on standardized data
-  - Compile rule results
-  - Handle rule failures gracefully
-  - Continue execution if individual rules fail
+  - Compile all rule results regardless of outcome
+  - Handle individual rule failures gracefully
+  - Continue execution if one rule fails
+  - Return compiled analysis results
   - _Requirements: 5.1, 5.2, 5.9, 5.10, 5.11_
 
 - [ ] 7.2 Implement Administrative Boundary Rule (ADM-001)
-  - Process administrative boundary dataset (standardized)
+  - Create AdministrativeRule class
+  - Process standardized admin boundary dataset
   - Identify country, state, district from polygon location
+  - Use spatial intersection to determine administrative region
   - Return structured administrative information
-  - Handle missing admin data gracefully
+  - Handle missing admin data (mark as insufficient_data)
   - _Requirements: 5.8_
 
 - [ ] 7.3 Implement Land Cover Summary Rule (LC-001)
-  - Process land cover dataset (standardized)
-  - Summarize dominant land cover types
-  - Calculate coverage percentages
-  - Return categorized land cover information
+  - Create LandCoverRule class
+  - Process standardized land cover dataset
+  - Summarize dominant land cover types in polygon
+  - Calculate coverage percentages by category
+  - Return categorized land cover results
+  - Handle missing land cover data gracefully
   - _Requirements: 5.3_
 
 - [ ] 7.4 Implement Building Presence Rule (BLD-001)
-  - Process building dataset (standardized)
+  - Create BuildingRule class
+  - Process standardized building dataset
   - Detect presence of buildings in polygon
-  - Estimate building count and coverage
-  - Return building presence information
+  - Count buildings and estimate coverage percentage
+  - Return building presence and statistics
+  - Handle empty building dataset (no buildings present)
   - _Requirements: 5.4_
 
 - [ ] 7.5 Implement Road Network Rule (RD-001)
-  - Process road dataset (standardized)
-  - Identify road access to polygon
-  - Categorize road types
+  - Create RoadRule class
+  - Process standardized road dataset
+  - Identify road access to polygon area
+  - Categorize road types present
   - Return road accessibility information
+  - Handle no road data case (no roads present)
   - _Requirements: 5.5_
 
 - [ ] 7.6 Implement Water Features Rule (WT-001)
-  - Process water bodies dataset (standardized)
+  - Create WaterRule class
+  - Process standardized water bodies dataset
   - Identify water features (rivers, lakes, canals, ponds)
-  - Estimate water coverage
-  - Return water feature information
+  - Estimate water coverage percentage
+  - Categorize water types present
+  - Handle no water data case
   - _Requirements: 5.6_
 
 - [ ] 7.7 Implement Elevation Rule (ELV-001)
-  - Process elevation dataset (standardized)
-  - Calculate min, max, mean elevation
-  - Categorize slope characteristics
+  - Create ElevationRule class
+  - Process standardized elevation dataset
+  - Calculate: min elevation, max elevation, mean elevation
+  - Categorize slope characteristics (flat, moderate, steep)
   - Return elevation summary information
+  - Handle missing elevation data
   - _Requirements: 5.7_
 
-- [ ] 7.8 Write property test for rule independence
+- [ ] 7.8 Write comprehensive property test for rule independence
   - **Property 7: Rule Independence and Continuation**
-  - **Validates: Requirements 5.9, 5.10**
-  - Simulate various rule failures
-  - Verify remaining rules continue executing
-  - Verify results are compiled despite failures
-  - Minimum 100 test iterations
-  - _Requirements: 5.9, 5.10_
+  - **Validates: Requirements 5.9, 5.10, 5.11**
+  - Simulate EVERY rule failure scenario comprehensively:
+    - Insufficient data (empty features array for rule input): each rule tested
+    - Malformed data (invalid geometry in features): each rule tested
+    - Calculation error (mathematical operation fails): simulate div by zero, null pointer
+    - Timeout (rule execution exceeds timeout): simulate slow computation
+    - Missing required fields (data doesn't have expected fields): each rule tested
+    - Invalid coordinate systems: coordinates don't match expected CRS
+    - Null input: entire input dataset is null
+    - Empty input: input provided but all arrays empty
+  - Test COMPLETE failure matrix:
+    - 1 rule fails (AdminRule only): verify other 5 continue → 1 rule fails alone
+    - 2 rules fail (Admin + LandCover): verify other 4 continue → test C(6,2)=15 combinations
+    - 3 rules fail (Admin + LandCover + Building): verify other 3 continue → test multiple
+    - 4 rules fail: verify 2 continue
+    - 5 rules fail: verify 1 continues
+    - All 6 rules fail: system fails gracefully (returns empty/error)
+    - Test MINIMUM 10 of each combination level
+  - Test all 6 rules with insufficient data:
+    - Admin rule with empty admin dataset
+    - Land cover rule with empty land cover dataset
+    - Building rule with empty building dataset
+    - Road rule with empty road dataset
+    - Water rule with empty water dataset
+    - Elevation rule with empty elevation dataset
+    - Verify each marks "insufficient_data" status independently
+  - Verify EACH rule failing independently doesn't stop other rules:
+    - Admin fails → Land cover, Building, Road, Water, Elevation continue
+    - Land cover fails → Admin, Building, Road, Water, Elevation continue
+    - Building fails → Admin, Land cover, Road, Water, Elevation continue
+    - (test all 6 independently)
+    - Monitor that other rules actually execute (not skipped)
+  - Verify MULTIPLE rules failing simultaneously works correctly:
+    - Admin + Land cover fail → Building, Road, Water, Elevation continue
+    - Admin + Building + Elevation fail → Land cover, Road, Water continue
+    - Test various combinations (15+ combinations)
+    - Verify each working rule still produces output
+  - Verify ALL results compiled despite partial/complete failures:
+    - With some rules successful: verify successful results included
+    - With all rules failed: verify failure status recorded for all
+    - With mixed results: verify all rule results in output (success + failure)
+    - Test response format consistent
+  - Verify NO cascading failures between rules:
+    - AdminRule failure doesn't cause LandCoverRule failure
+    - LandCoverRule failure doesn't cause BuildingRule failure
+    - (test all pairs: 6 × 5 = 30 pairs possible)
+    - Verify independent error handling per rule
+  - Test EACH rule's specific failure mode:
+    - Admin rule: empty boundaries, bad admin_level values
+    - Land cover: empty raster data, invalid classification codes
+    - Building: empty building footprints, malformed geometries
+    - Road: empty road network, invalid road types
+    - Water: empty water features, invalid water types
+    - Elevation: empty elevation data, invalid elevation values
+  - Verify failure status recorded CORRECTLY for each rule:
+    - Rule completes: status = "success"
+    - Rule has insufficient data: status = "insufficient_data"
+    - Rule encounters error: status = "error"
+    - Test status recording accurate for all 6 rules
+  - Test recovery scenarios:
+    - Provider data becomes available after initial failure
+    - Rule failure on first polygon, succeeds on second polygon
+    - Intermittent rule failures (random success/failure)
+  - Test rule execution with various input data states:
+    - All data available: all rules execute with full data
+    - Partial data: some datasets available, some not
+    - Only critical data: only building/admin available
+    - Only optional data: only elevation/water available
+  - Test rule execution order:
+    - Rules execute in consistent order (always same sequence)
+    - Order doesn't affect failure independence
+    - Order doesn't affect results (idempotence)
+  - Test error logging:
+    - Each rule failure logged with context
+    - Error messages include rule name, failure reason
+    - Logs don't interfere with other rules
+  - Test with real standardized data:
+    - Use actual standardized dataset structures
+    - Use real feature counts and properties
+    - Verify failures with realistic data
+  - MINIMUM 500 test iterations (1000+ recommended for complete failure matrix)
+  - Coverage MUST include: all rule combinations, all failure types, all data states
+  - Test EVERY rule with EVERY failure type (6 × 8 = 48 minimum combinations)
+  - Test EVERY rule pair failing together (C(6,2)=15 combinations)
+  - _Requirements: 5.9, 5.10, 5.11_
+  - **MANDATORY**: Verify complete rule independence - one rule's failure never stops others
 
-- [ ] 7.9 Write property test for rule result compilation
+- [ ] 7.9 Write comprehensive property test for rule result compilation
   - **Property 8: Rule Result Compilation**
   - **Validates: Requirements 5.11**
-  - Execute rules with various success states
-  - Verify all results compile into single output
-  - Verify no data loss in compilation
-  - Minimum 100 test iterations
+  - Execute rules with COMPLETE success state variations: all pass, partial success, all fail, mixed scenarios
+  - Test compilation THOROUGHLY with all rules successful (verify all included)
+  - Test compilation with VARIOUS failure states: insufficient data, errors, timeouts
+  - Test compilation with COMPLETE mix of successes and failures (all combinations)
+  - Verify ALL rule results included in output REGARDLESS of outcome
+  - Verify compilation structure CONSISTENT across ALL scenarios (same JSON structure always)
+  - Verify NO data loss in compilation process (all outputs present)
+  - Verify rule status CORRECTLY reflects each rule's outcome (success/insufficient_data/error)
+  - Test with ALL 6 rules enabled (buildings, admin, land_cover, roads, water, elevation)
+  - Test with subset of rules enabled (verify compilation works with partial rules)
+  - Test ordering consistency (rules execute in consistent order)
+  - MINIMUM 300 test iterations (500+ recommended for complete state combinations)
+  - Coverage MUST include: all rule combinations, all success/failure states, all ordering scenarios
   - _Requirements: 5.11_
+  - **MANDATORY**: Exhaustive compilation validation for all rule outcome combinations
 
 ### 8. Output Generation Module
 
-- [ ] 8.1 Implement Output Generator
-  - Create OutputGenerator class with generate(rules_results, processing_status) method
+- [ ] 8.1 Implement Output Generator for structured results
+  - Create OutputGenerator class
   - Compile rule results into analysis summary
-  - Build JSON response with all required fields
+  - Build complete AnalysisResponse JSON with all required sections
   - Include processing status for each module
-  - Include provider status information
-  - Return AnalysisResponse object
+  - Include provider status and availability information
+  - Include error summary if applicable
+  - Return valid, well-formatted JSON
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.8_
 
-- [ ] 8.2 Write property test for output format consistency
+- [ ] 8.2 Write comprehensive property test for output format consistency
   - **Property 9: Output Format Consistency**
-  - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.7, 6.8**
-  - Generate analysis results
-  - Verify output JSON has all required fields
-  - Verify output is valid JSON
-  - Minimum 100 test iterations
-  - _Requirements: 6.1, 6.2, 6.3_
+  - **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 9.4, 9.5**
+  - Generate real analysis results from COMPLETE full pipeline (all stages):
+    - Run through all stages: validation → collection → standardization → rules → output
+    - Use real polygons, real provider data
+  - Verify output JSON has ALL required top-level fields:
+    - request_id: unique string identifier
+    - status: one of "success", "partial", "error"
+    - timestamp: ISO8601 format
+    - analysis_summary: object with required fields
+    - land_information: object with category sections
+    - processing_status: module status summary
+    - provider_status: provider availability summary
+    - errors: array (empty or populated)
+  - Verify output is VALID, PARSEABLE JSON:
+    - Output must parse without exception
+    - Valid JSON syntax (matching braces, proper escaping)
+    - Test with large outputs (1000+ features per category)
+    - Test special characters handled (quotes, unicode)
+  - Verify ALL nested structures COMPLETE:
+    - analysis_summary: polygon_area_sqkm, analysis_date, primary_land_cover, key_findings
+    - land_information: administrative, land_cover, buildings, roads, water, elevation
+    - processing_status: validation, data_collection, standardization, rule_engine, output_generation
+    - provider_status: entry for each provider with availability
+    - No missing nested objects or undefined fields
+  - Test with SUCCESSFUL analysis:
+    - All providers available
+    - All rules pass
+    - Output status: "success"
+    - All analysis_summary fields populated
+    - All land_information sections populated
+    - All processing_status modules: "success"
+  - Test with PARTIAL results:
+    - Some providers failed
+    - Some rules insufficient_data
+    - Output status: "partial"
+    - Missing data handled gracefully
+  - Test with DEGRADED analysis:
+    - All providers unavailable
+    - All rules failed
+    - Output status: "error"
+    - Error messages explain situation
+  - Verify analysis_summary has ALL required fields:
+    - polygon_area_sqkm: number, calculated correctly
+    - analysis_date: ISO8601 timestamp
+    - primary_land_cover: string (dominant cover or "Unknown")
+    - key_findings: array of strings
+  - Verify land_information has ALL category sections:
+    - administrative, land_cover, buildings, roads, water, elevation
+    - Each present (even if null when unavailable)
+    - Consistent structure when present
+  - Verify processing_status reflects ACTUAL outcomes:
+    - Each module: success, partial, or error (with reason)
+    - Matches what actually happened
+  - Verify provider_status ACCURATE:
+    - Each provider: {available: bool, records: number}
+    - Records count matches actual data
+  - Verify errors array always present:
+    - Empty on success ([])
+    - Populated on errors (each error: code, message, source)
+  - Test HTTP Status Codes:
+    - HTTP 200: success or partial (data provided)
+    - HTTP 500: error (error info provided)
+    - Response body matches status code
+  - Test response headers:
+    - Content-Type: application/json
+    - CORS headers present
+  - Test with real data variations:
+    - Various polygon sizes (10m² to 100km²)
+    - Various locations (urban, rural, ocean)
+    - Various provider combinations (all, partial, none)
+  - Test timestamp format consistency:
+    - Format: YYYY-MM-DDTHH:MM:SSZ
+    - All timestamps parseable
+    - Timezone information consistent
+  - MINIMUM 500 test iterations (1000+ recommended for all paths)
+  - Coverage MUST include: all success states, all partial failures, all error states
+  - Test EVERY combination of:
+    - Provider availability (all, 5/6, 4/6, ... 1/6, 0/6)
+    - Rule success rates (all pass, 5/6 pass, ... all fail)
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.7, 6.8_
+  - **MANDATORY**: Exhaustive output format validation for ALL pipeline outcomes - perfect JSON consistency
 
-- [ ] 8.3 Write property test for data encapsulation in output
+- [ ] 8.3 Write comprehensive property test for data encapsulation
   - **Property 10: Data Encapsulation in Output**
-  - **Validates: Requirements 6.7**
-  - Verify output contains no raw provider data
-  - Verify no internal implementation details exposed
-  - Verify only standardized processed data included
-  - Minimum 100 test iterations
-  - _Requirements: 6.7_
+  - **Validates: Requirements 6.7, 8.2, 8.5, 8.6**
+  - Verify output contains ONLY processed, standardized data (NEVER raw API responses):
+    - No raw Overpass API response JSON
+    - No raw Copernicus raster data or metadata
+    - No raw USGS elevation API format
+    - No provider-specific wrapper structures
+  - Verify NO raw provider-specific formats in output:
+    - No OSM tags: building=yes, highway=primary, admin_level=4
+    - No Copernicus codes: 10 (urban), 20 (cropland), 30 (tree_cover)
+    - No USGS keywords: dem_source, epqs_query, elevation_meters
+    - Scan output for ALL provider-specific terminology
+  - Verify NO internal implementation details exposed:
+    - No class names (no AdminRule, LandCoverRule visible)
+    - No file paths (no /backend/rules/admin.py)
+    - No line numbers or stack traces
+    - No Python variable names (no self.*, no _private fields)
+    - No module names (no utils.py, collectors.py)
+    - No database queries or SQL
+  - Verify ONLY user-facing information included:
+    - Summary data (polygon area, date)
+    - Business metrics (land cover percentages)
+    - Meaningful findings (key_findings array)
+    - Administration information
+    - Not: processing details, performance metrics, internal states
+  - Test output doesn't contain API response structures:
+    - No Overpass response format (with [elements] array)
+    - No STAC metadata objects
+    - No GeoTIFF header information
+    - No API wrapper structures
+  - Test output doesn't contain internal variable names:
+    - No self.variable exposed
+    - No _private_field visible
+    - No __internal__ markers
+    - Clean public API only
+  - Test output doesn't contain backend configuration details:
+    - No timeout values (no "timeout_seconds": 30)
+    - No retry counts (no "max_retries": 2)
+    - No API endpoints (no "api_url": "http://...")
+    - No credentials or keys (none exposed)
+    - No database connection info
+  - Test ALL output fields use BUSINESS terminology, NOT provider terminology:
+    - "land_cover_type" not "LC_TYPE" or "class_code"
+    - "building_count" not "way_count" or "osm_nodes"
+    - "administrative_region" not "admin_level" or "relation"
+    - "elevation_meters" not "DEM_value" or "SRTM_sample"
+    - "water_feature_type" not "waterway_tag" or "natural_water"
+  - Test for information leakage from ALL providers:
+    - OSM keywords: overpass, osm, way, relation, node, tag
+    - Copernicus keywords: copernicus, glc, stac, geotiff
+    - USGS keywords: usgs, dem, gebco, epqs, elevation_point
+    - Provider names: OpenStreetMap, Copernicus, USGS
+    - Scan output with regex for EVERY possible provider keyword
+  - Test for specific provider artifacts:
+    - No OSM JSON structure (properties with tags)
+    - No GeoTIFF metadata embedded
+    - No STAC collection links
+    - No provider version information
+  - Test with real data from all providers:
+    - Standardized buildings data → verify no OSM tags present
+    - Standardized admin data → verify no admin_level values
+    - Standardized land cover → verify codes converted to names
+    - Standardized roads → verify no highway tags
+    - Standardized water → verify no waterway tags
+    - Standardized elevation → verify clean elevation values
+  - Test error messages don't leak information:
+    - Error messages mention no file paths
+    - Error messages mention no internal module names
+    - Error messages mention no database queries
+    - Error messages don't expose API endpoints
+  - Test response doesn't expose system details:
+    - No server software info (no "Apache", "nginx")
+    - No language runtime (no "Python 3.9")
+    - No framework name (no "FastAPI", "Flask")
+    - No dependency versions
+  - Test with large outputs:
+    - Large analysis results: verify no leaks throughout
+    - Complex data structures: verify encapsulation maintained
+  - Test JSON serialization:
+    - Serialize output: verify no object repr() leaks
+    - Serialize with special types: verify clean conversion
+    - Serialize with null values: verify safe handling
+  - MINIMUM 500 test iterations (1000+ recommended):
+    - Test many polygons of various sizes/locations
+    - Test all provider combinations
+    - Test all rule combinations
+    - Test all failure scenarios
+  - Coverage MUST include: all providers, all data types, all output fields
+  - Scan EVERY field in output for:
+    - Provider keywords (automated keyword detection)
+    - Internal implementation terms (automated filtering)
+    - File paths (regex: /path/to/file)
+    - Line numbers (regex: :line_number)
+    - Class/function names (regex: Class.method)
+  - _Requirements: 6.7, 8.2, 8.5, 8.6_
+  - **MANDATORY**: Strict data encapsulation validation - ZERO internal implementation details leak
 
 ### 9. Error Handling and Response Formatting
 
-- [ ] 9.1 Implement error handling middleware
+- [ ] 9.1 Implement comprehensive error handling middleware
   - Create error handler for validation errors (HTTP 400/422)
-  - Create error handler for provider errors (HTTP 500 with safe message)
+  - Create error handler for real provider failures (HTTP 500 with safe message)
   - Create error handler for unexpected exceptions (HTTP 500 with generic message)
   - Ensure no stack traces exposed to user
+  - Log full error details to server logs
   - _Requirements: 8.1, 8.2, 8.5, 8.6_
 
-- [ ] 9.2 Implement error message sanitization
+- [ ] 9.2 Implement error message sanitization utility
   - Create utility to sanitize error messages
-  - Ensure descriptive but safe error text
-  - Remove implementation details
+  - Remove internal implementation details
+  - Remove file paths and stack traces
+  - Make error messages descriptive but safe for users
   - _Requirements: 8.2, 8.5_
 
-- [ ] 9.3 Write property test for HTTP status codes
+- [ ] 9.3 Write comprehensive property test for HTTP status codes
   - **Property 11: HTTP Status Code Consistency**
-  - **Validates: Requirements 9.4, 9.5, 9.6, 9.7**
-  - Send valid polygon → verify 200 response
-  - Send invalid polygon → verify 400/422 response
-  - Simulate errors → verify 500 response
-  - Minimum 100 test iterations
-  - _Requirements: 9.4, 9.5_
+  - **Validates: Requirements 9.4, 9.5, 9.6, 9.7, 8.1, 8.2**
+  - Send valid polygon → verify HTTP 200 response EVERY TIME:
+    - Various valid sizes (10m², 100m², 1km², 10km², 100km²)
+    - Various valid locations (equator, poles, all longitudes)
+    - Various valid shapes (triangle, square, pentagon, complex)
+    - Verify 100% HTTP 200 rate for valid input
+  - Send invalid polygon (bad GeoJSON) → verify HTTP 400 or 422 response CONSISTENTLY:
+    - Missing coordinates field
+    - Wrong geometry type
+    - Null geometry
+    - Invalid JSON syntax
+    - Test 20+ bad GeoJSON variations
+    - Verify consistent 400 or 422 responses (all same code)
+  - Send polygon too small (<10m²) → verify HTTP 400 or 422 response:
+    - Exactly 9.99999m²
+    - 1m², 0.001m²
+    - Test boundary condition
+    - Verify rejection with descriptive error message
+  - Send polygon too large (>100km²) → verify HTTP 400 or 422 response:
+    - Exactly 100.00001km²
+    - 101km², 1000km²
+    - Test boundary condition
+    - Verify rejection with descriptive error message
+  - Send polygon with too many vertices → verify HTTP 400 or 422 response:
+    - Exactly 10,001 vertices
+    - 50,000 vertices
+    - Test boundary condition
+    - Verify rejection with descriptive error message
+  - Send polygon with malformed coordinates → verify HTTP 400 or 422 response:
+    - Coordinates out of range (-181, -91, 181, 91)
+    - Mixed valid/invalid coordinates in same polygon
+    - Unclosed rings
+    - Invalid coordinate order
+    - Test 15+ coordinate variations
+  - Send polygon with invalid coordinate types → verify HTTP 400 or 422 response:
+    - Strings instead of numbers
+    - Missing coordinate elements
+    - Extra coordinate elements
+    - Null coordinates
+  - Simulate COMPLETE provider error scenarios → verify HTTP 500 response:
+    - All providers unavailable simultaneously
+    - All providers timeout
+    - All providers return 500 errors
+    - All providers return malformed responses
+    - Verify HTTP 500 returned (not 400/422)
+    - Verify error message included
+  - Simulate PARTIAL provider failures → verify HTTP 200 with partial data:
+    - Some providers available, some fail
+    - Some providers timeout, some succeed
+    - Verify HTTP 200 (success with degradation)
+    - Verify response includes available data
+    - Verify processing_status reflects actual situation
+  - Test provider-specific error responses → verify HTTP 500:
+    - Overpass API timeout → HTTP 500
+    - Copernicus API 429 (rate limit) → HTTP 500 (with retry)
+    - USGS API 404 (endpoint gone) → HTTP 500
+    - Network connectivity failure → HTTP 500
+  - Test system error scenarios → verify HTTP 500:
+    - Rule engine exception → HTTP 500
+    - Output generator failure → HTTP 500
+    - Unexpected Python exception → HTTP 500
+    - Verify error message doesn't expose stack trace
+  - Test endpoint not found → verify HTTP 404 response:
+    - Request to /nonexistent → HTTP 404
+    - Request to /analyze/wrong → HTTP 404
+    - Verify proper 404 handling
+  - Test method not allowed → verify HTTP 405 response:
+    - GET /analyze → HTTP 405 (only POST allowed)
+    - PUT /analyze → HTTP 405
+    - DELETE /analyze → HTTP 405
+  - Verify error responses have DESCRIPTIVE messages ALWAYS:
+    - Validation error: explains which field is invalid and why
+    - Provider error: explains which provider failed
+    - System error: explains what went wrong (generic, safe)
+    - Each error message actionable (tells user next step)
+  - Test status code correctness for ALL input combinations:
+    - Valid input: 200 (success or partial)
+    - Invalid polygon: 400 or 422 (consistent choice)
+    - Invalid GeoJSON: 400 or 422 (consistent choice)
+    - Provider error: 500 (always)
+    - System error: 500 (always)
+    - Verify consistency (same error type always same code)
+  - Test response body format matches specification for each status code:
+    - HTTP 200: has analysis_summary, land_information, processing_status, provider_status
+    - HTTP 400/422: has error_code, error_message, request_id
+    - HTTP 500: has error_code, error_message, request_id (no stack trace)
+    - HTTP 404: has error_code, error_message
+    - All responses valid JSON
+  - Test response headers for each status code:
+    - Content-Type: application/json (all codes)
+    - Content-Length: present and accurate
+    - CORS headers: present for all codes
+    - No sensitive headers exposed
+  - Test error messages are non-technical and helpful:
+    - "Polygon area is too small (5 m²). Minimum area is 10 m²" (clear)
+    - Not: "ValidationError: area < MIN_AREA (5 < 10)" (technical)
+    - User can understand issue without technical knowledge
+    - User knows how to fix (too small/large/invalid)
+  - Test status code consistency across multiple requests:
+    - Send same valid polygon 10 times → always HTTP 200
+    - Send same invalid polygon 10 times → always 400/422
+    - Verify deterministic behavior
+  - Test status codes with various polygon geometries:
+    - Point (invalid geometry) → 400/422
+    - LineString (invalid geometry) → 400/422
+    - Polygon (valid geometry) → 200 or 400/422 based on size
+    - MultiPolygon (valid geometry) → 200 or 400/422 based on size
+  - Test status codes with extreme values:
+    - Huge polygon (10000km²) → 400/422
+    - Tiny polygon (0.00001m²) → 400/422
+    - Polygon at equator (lat=0) → 200 (if valid size)
+    - Polygon at pole (lat=90) → 200 (if valid size)
+  - MINIMUM 500 test iterations (1000+ recommended for all combinations):
+    - Test valid cases: 100+ iterations
+    - Test invalid cases: 300+ iterations (various invalid types)
+    - Test error cases: 200+ iterations (various provider/system errors)
+    - Test edge cases: 100+ iterations (boundary values)
+  - Coverage MUST include: all valid cases, all invalid cases, all error scenarios
+  - Test EVERY combination of:
+    - Valid input types (size, shape, location)
+    - Invalid input types (bad JSON, bad size, bad shape, bad coords)
+    - Provider error types (timeout, 500, malformed, missing)
+    - System error types (exception, failure, crash)
+  - _Requirements: 9.4, 9.5, 9.6, 9.7, 8.1, 8.2_
+  - **MANDATORY**: Exhaustive HTTP status code validation - perfect consistency for all scenarios
 
-- [ ] 9.4 Write property test for error message safety
+- [ ] 9.4 Write comprehensive property test for error message safety
   - **Property 12: Error Message Safety**
   - **Validates: Requirements 8.2, 8.5, 8.6**
-  - Generate various errors
-  - Verify no stack traces in error messages
-  - Verify messages are readable
-  - Minimum 100 test iterations
-  - _Requirements: 8.2, 8.5_
+  - Generate COMPREHENSIVE error conditions with real data:
+    - Use real polygon variations that trigger each error type
+    - Use real provider failure scenarios
+    - Use real system exceptions
+  - Test validation error messages (polygon invalid):
+    - Polygon too small: message explains minimum area and actual area
+    - Polygon too large: message explains maximum area and actual area
+    - Bad GeoJSON: message explains what's wrong (missing field, wrong type)
+    - Malformed coordinates: message explains coordinate issue
+    - Too many vertices: message explains vertex limit and actual count
+    - Bad geometry: message explains geometry requirement
+    - Test 20+ validation error scenarios
+    - Verify each message is HELPFUL and explains how to fix
+  - Test provider failure error messages (API unavailable):
+    - Overpass API timeout: "Unable to access mapping data. Please try again later."
+    - Copernicus API 429 (rate limit): "Service temporarily busy. Please try again in a moment."
+    - USGS API 500: "Unable to access elevation data. Please try again later."
+    - Network connection error: "Unable to connect to data providers. Please check your connection."
+    - Test 15+ provider error scenarios
+    - Verify messages mention no internal provider names/endpoints
+  - Test system error messages (unexpected exceptions):
+    - Python exception in rule engine: "Analysis failed due to unexpected error. Please try again."
+    - Python exception in standardizer: "Data processing failed. Please try again."
+    - Python exception in output generator: "Result formatting failed. Please try again."
+    - Database error (if applicable): "Temporary system error. Please try again later."
+    - Verify NO stack trace visible
+    - Verify NO Python error details exposed
+    - Test 10+ system error scenarios
+  - Verify NO stack traces in error messages:
+    - Scan messages for .py file paths (should be 0)
+    - Scan messages for line numbers (should be 0)
+    - Scan messages for function names (should be 0)
+    - Scan messages for traceback keyword (should be 0)
+    - Scan messages for exception class names (should be 0)
+    - Automated regex scan for common Python traceback patterns
+  - Verify NO sensitive information exposed:
+    - NO API keys in error messages
+    - NO database connection strings in error messages
+    - NO file paths to source code in error messages
+    - NO credentials or secrets in error messages
+    - NO internal server IPs or hostnames in error messages
+    - NO database table/column names in error messages
+    - Automated scan for common sensitive patterns
+  - Verify NO internal implementation details revealed:
+    - NO class names (AdminRule, LandCoverRule, etc.)
+    - NO function names (validate_polygon, collect_data, etc.)
+    - NO module names (collectors.py, rules.py, etc.)
+    - NO variable names (raw_dataset, standardized_data, etc.)
+    - NO Python-specific terms (NoneType, IndexError, etc.)
+    - NO technical implementation terminology
+    - NO version numbers of internal libraries
+  - Verify messages are HUMAN-READABLE and UNDERSTANDABLE:
+    - No technical jargon (no "synchronous I/O", "exception handling")
+    - No acronyms without explanation (no "GeoJSON" unexplained)
+    - Plain English that non-technical user can understand
+    - Short sentences (preferably < 20 words)
+    - Positive tone (tell user what to do, not what can't be done)
+    - Test with 50+ diverse error scenarios
+  - Verify error messages GUIDE users toward resolution:
+    - Message explains WHAT went wrong
+    - Message explains HOW to fix or next step
+    - Examples: "Polygon too small. Please draw a larger area (minimum 10 m²)"
+    - Not: "ValidationError: area < MIN_AREA"
+    - User can resolve issue without technical support
+  - Test error message consistency across all error types:
+    - Similar errors have similar message format
+    - All messages use same tone and language style
+    - All messages have similar length/complexity
+    - Message format consistent across all modules
+    - User experience consistent regardless of error type
+  - Test error codes are consistent and documented:
+    - Each error code documented in API spec
+    - Error codes don't change between releases
+    - Related errors have sequential or logical codes
+    - Codes meaningful or consistent (not random)
+    - Client can programmatically detect error type
+  - Test error responses don't leak information through other fields:
+    - request_id: present but only UUID (no revealing info)
+    - timestamp: safe ISO8601 format
+    - status: only "error", no internal status names
+    - No extra fields with debug information
+  - Test server headers don't expose information:
+    - No X-Powered-By header (no "Python/3.9" or "FastAPI")
+    - No Server header (no "nginx/1.21", "Apache/2.4")
+    - Standard headers only (Content-Type, Content-Length, CORS)
+  - Test with various error severity levels:
+    - User error (bad input): helpful, not blaming
+    - Provider error (API down): reassuring, not alarming
+    - System error (bug): apologetic, professional
+    - Each level has appropriate tone
+  - Test error messages with real failures:
+    - Actual timeout from Overpass: message doesn't expose retry logic
+    - Actual rate limit from provider: message doesn't expose rate limit details
+    - Actual system crash: message doesn't expose crash info
+  - Test error message localization readiness:
+    - Messages use simple English (easy to translate)
+    - No culture-specific references
+    - Numbers in standard format
+    - No slang or idioms
+    - Ready for translation to other languages
+  - Test error messages don't assume user technical knowledge:
+    - No references to REST, HTTP, JSON
+    - No references to APIs, endpoints, queries
+    - No references to databases, files, systems
+    - Assume general user with no technical background
+  - Test errors with multiple problems:
+    - Polygon invalid AND too large: which error takes priority?
+    - Multiple validation errors: handled appropriately
+    - Multiple provider failures: error message summarizes
+    - Verify clear, not confusing
+  - MINIMUM 500 test iterations (1000+ recommended for all error types):
+    - Test validation errors: 100+ iterations (all validators)
+    - Test provider errors: 200+ iterations (all providers, all error types)
+    - Test system errors: 150+ iterations (all modules, all exceptions)
+    - Test edge cases: 100+ iterations (combined errors, rare scenarios)
+  - Coverage MUST include: all error types, all internal/external errors, all edge cases
+  - Test EVERY error condition:
+    - All validation failures
+    - All provider failures
+    - All system exceptions
+    - All combinations/sequences
+  - Automated scanning for safety violations:
+    - Regex scan for file paths (/path/to/file)
+    - Regex scan for line numbers (:123)
+    - Regex scan for function calls (function())
+    - Regex scan for Python keywords (TypeError, ImportError)
+    - Regex scan for known sensitive patterns
+  - _Requirements: 8.2, 8.5, 8.6_
+  - **MANDATORY**: Comprehensive error message safety validation - ZERO security/information leaks
 
 ### 10. Integration: Wire Everything Together
 
-- [ ] 10.1 Complete /analyze endpoint implementation
-  - Receive polygon and call validation
-  - On validation success, call Data Source Manager
-  - Call Data Validator on collected data
-  - Call Data Standardizer on validated data
-  - Call Rule Engine on standardized data
-  - Call Output Generator to create response
-  - Return JSON response with appropriate HTTP status
+- [ ] 10.1 Complete /analyze endpoint with real data pipeline
+  - Integrate polygon validation
+  - Integrate Data Source Manager with real collectors
+  - Integrate Data Validator
+  - Integrate Data Standardizer
+  - Integrate Rule Engine
+  - Integrate Output Generator
+  - Return proper HTTP status codes and JSON responses
+  - Handle all error cases gracefully
   - _Requirements: 9.1, 9.4, 9.5_
 
-- [ ] 10.2 Implement /health endpoint
-  - Return service health status and version
-  - Verify backend is running
+- [x] 10.2 Implement /health endpoint for service monitoring
+  - Return service health status
+  - Return application version
+  - Return uptime information
+  - Return basic configuration info (not sensitive)
   - _Requirements: 9.2_
 
-- [ ] 10.3 Implement /status endpoint
-  - Return prototype version and configuration information
-  - List enabled providers
+- [ ] 10.3 Implement /status endpoint for system information
+  - Return prototype version
+  - List enabled data providers
+  - List available rules
+  - Return system configuration summary
   - _Requirements: 9.3_
 
-- [ ] 10.4 Write property test for configuration-driven execution
+- [ ] 10.4 Write comprehensive property test for configuration-driven execution
   - **Property 13: Configuration-Driven Collector Execution**
   - **Validates: Requirements 10.3, 10.7**
-  - Vary configuration to enable/disable providers
-  - Verify only enabled providers execute
-  - Minimum 100 test iterations
+  - Vary configuration to enable/disable providers EXHAUSTIVELY
+  - Test COMPLETE combinations: all enabled, all disabled, single enabled, multiple enabled/disabled combinations
+  - Verify ONLY enabled providers execute (others don't make HTTP API calls at all)
+  - Verify DISABLED providers NEVER execute (monitor for network calls to disabled providers)
+  - Verify configuration changes take effect WITHOUT restart (change config, run analysis, verify behavior)
+  - Verify code DOESN'T need changes for configuration updates (only config file changes needed)
+  - Test timeout values read from configuration (verify configured timeout is used)
+  - Test retry count respects configuration (configured count is used)
+  - Test rate limit delays use configured values (configured delays applied)
+  - Test provider endpoints read from configuration (verify configured endpoints are called)
+  - Test with missing/invalid configuration values (graceful defaults or error)
+  - MINIMUM 300 test iterations (500+ recommended for all enable/disable combinations)
+  - Coverage MUST include: all provider combinations, all configuration values
   - _Requirements: 10.3, 10.7_
+  - **MANDATORY**: Comprehensive configuration validation - code-free provider management
 
-- [ ] 10.5 Write property test for graceful degradation
+- [x] 10.5 Write comprehensive property test for graceful degradation
   - **Property 14: Graceful Degradation with Optional Providers**
   - **Validates: Requirements 11.2, 12.8**
-  - Disable optional providers
-  - Verify system returns partial results
-  - Verify no crashes or missing fields
-  - Minimum 100 test iterations
+  - Disable optional providers in configuration (systematically disable land_cover, etc.)
+  - Test with land_cover disabled (verify analysis continues)
+  - Test with multiple optional providers disabled (all combinations)
+  - Verify system returns PARTIAL but VALID results (not empty)
+  - Verify system DOESN'T crash with missing optional data
+  - Verify required fields STILL present (analysis doesn't become unusable)
+  - Verify status reflects unavailable optional providers CLEARLY
+  - Test that analysis is STILL MEANINGFUL with degraded data (results are useful)
+  - Test with various combinations of disabled providers
+  - Verify response format consistent even with degraded data
+  - Verify error messages explain which providers are unavailable
+  - Test with all optional providers disabled
+  - Test with all required providers disabled (should fail gracefully)
+  - MINIMUM 300 test iterations (500+ recommended for all disable combinations)
+  - Coverage MUST include: all optional providers, all combinations, partial/full degradation
   - _Requirements: 11.2, 12.8_
+  - **MANDATORY**: Comprehensive graceful degradation validation
+  - ✅ **COMPLETED**: Created comprehensive test suite in `backend/tests/test_graceful_degradation_property.py` with 19 test cases covering all graceful degradation scenarios. All tests pass.
 
-- [ ] 10.6 Write property test for module failure isolation
+- [x] 10.6 Write comprehensive property test for module failure isolation
   - **Property 15: Module Failure Isolation**
   - **Validates: Requirements 8.3, 8.4, 8.7, 8.8**
-  - Simulate failures at each stage
-  - Verify system returns response with failure status
-  - Verify no cascading failures
-  - Minimum 100 test iterations
+  - Simulate failures at EVERY stage systematically: validation, collection, standardization, rules, output
+  - Test validation failure → system returns error (DOESN'T proceed)
+  - Test collection failure → system continues with partial data (continues)
+  - Test standardization failure → system logs and continues (continues)
+  - Test rule failure → other rules continue independently (continues)
+  - Test output failure → system still returns response with error status (continues)
+  - Verify system returns response with failure status for each scenario
+  - Verify NO cascading failures (1 module failing doesn't crash entire system)
+  - Verify partial results returned when possible
+  - Test ALL failure combinations systematically (all possible combinations)
+  - Test recovery scenarios: failure temporary then resolves
+  - Test with real data through all failure points
+  - Verify error messages differentiate between failure types (validation vs provider vs system)
+  - MINIMUM 500 test iterations (1000+ recommended for complete failure matrix)
+  - Coverage MUST include: all modules, all failure types, all combinations
   - _Requirements: 8.3, 8.4_
+  - **MANDATORY**: Exhaustive module failure isolation validation with complete failure matrix
+  - ✅ **COMPLETED**: Created comprehensive test suite in `backend/tests/test_module_failure_isolation_property.py` with 25 test cases covering validation, collection, standardization, rules, and output stage failures. All tests pass (650+ property-based test iterations across 3 property tests exceeding 500 minimum requirement).
 
 ### 11. Frontend Implementation
 
-- [ ] 11.1 Create basic HTML structure
-  - Create index.html with container for map and results
-  - Set up basic page layout and styling
-  - Include Leaflet CSS
+- [ ] 11.1 Create React project structure with Vite
+  - Initialize Vite React TypeScript project
+  - Set up directory structure: src/, public/, components/, pages/, styles/
+  - Configure environment variables for backend API endpoint
+  - Set up ESLint and Prettier for code quality
+  - Create basic index.html with root div
+  - Create main App component scaffold
   - _Requirements: 7.1_
 
-- [ ] 11.2 Implement Leaflet map display
-  - Initialize Leaflet map with OpenStreetMap tiles
-  - Display interactive map on page load
+- [ ] 11.2 Implement Leaflet map component
+  - Create React MapContainer component using react-leaflet
+  - Initialize OpenStreetMap tiles (tile.openstreetmap.org)
+  - Set appropriate zoom level (4) and center (40, 0)
+  - Make map responsive to window resize
+  - Handle map initialization errors gracefully
   - _Requirements: 7.1, 7.4_
 
-- [ ] 11.3 Implement polygon drawing functionality
-  - Add Leaflet.Draw plugin for polygon drawing
-  - Allow users to draw polygons on map
-  - Display drawn polygon on map
+- [ ] 11.3 Implement polygon drawing and validation
+  - Integrate Leaflet.Draw plugin
+  - Create DrawControl component for polygon drawing
+  - On polygon creation: validate size (10 m² to 100 km²)
+  - On polygon creation: validate vertex count (max 10,000)
+  - Display validation error messages for invalid polygons
+  - Display valid polygon with green highlighting on map
+  - Store valid polygon for submission
   - _Requirements: 7.2, 7.4_
 
 - [ ] 11.4 Implement GeoJSON file upload
-  - Create file upload input for GeoJSON files
-  - Parse uploaded GeoJSON
+  - Create FileUpload component with drag-and-drop
+  - Parse uploaded GeoJSON file
+  - Validate GeoJSON structure and polygons
+  - Validate polygon size (10 m² to 100 km²)
   - Display uploaded polygon on map
+  - Show error messages for invalid files
   - _Requirements: 7.3, 7.4_
 
-- [ ] 11.5 Implement Analyze button and request sending
-  - Create Analyze button
-  - Extract polygon from map
-  - Send polygon to backend /analyze endpoint via POST
-  - Handle loading/processing state
+- [ ] 11.5 Implement Analyze button and API communication
+  - Create AnalyzeButton component
+  - Extract polygon from map (drawn or uploaded)
+  - Convert polygon to proper GeoJSON format
+  - Send POST request to backend /analyze endpoint
+  - Handle loading state (disable button, show spinner)
+  - Handle errors and display readable error messages
+  - Show processing progress/status
   - _Requirements: 7.5, 7.6_
 
 - [ ] 11.6 Implement results display panel
-  - Create results panel for displaying analysis output
-  - Format and display land information
-  - Display analysis summary
-  - Show processing status
+  - Create ResultsPanel component with React tabs
+  - Create tabs for: Summary, Administrative, Land Cover, Buildings, Roads, Water, Elevation
+  - Format and display analysis_summary data
+  - Format and display land_information results
+  - Format and display provider_status information
+  - Handle missing data gracefully (show "No data available")
+  - Format numbers and metrics clearly
   - _Requirements: 7.7, 7.9_
 
-- [ ] 11.7 Implement error display
-  - Display readable error messages to user
-  - Format errors clearly
+- [x] 11.7 Implement error display component
+  - Create ErrorDisplay component
+  - Format error messages with error codes
+  - Show error severity (warning, error, critical)
+  - Display provider-specific error information
+  - Make error messages readable and non-technical
   - _Requirements: 7.8, 8.2_
 
-- [ ] 11.8 Create CSS styling
-  - Style map container and controls
-  - Style results panel
-  - Style error messages
-  - Ensure clean, simple interface for demonstration
+- [ ] 11.8 Create production CSS styling with responsive design
+  - Style map container (full width, appropriate height)
+  - Style control buttons (Analyze, Draw, Upload)
+  - Style input elements and file upload
+  - Style results panel with tabs
+  - Style error messages with appropriate colors and icons
+  - Implement responsive design for mobile and desktop
+  - Ensure clean, simple interface suitable for demonstration
+  - Use CSS Grid/Flexbox for layout
   - _Requirements: 7.1_
 
-### 12. Checkpoint 1 - Core Functionality Complete
+### 12. Checkpoint 1 - End-to-End Real Data Processing
 
-- [ ] 12.1 Verify all modules work end-to-end
-  - Run complete analysis from polygon input to results display
-  - Verify all API endpoints work correctly
-  - Verify error handling functions properly
-  - Ensure frontend and backend communicate correctly
+- [ ] 12.1 Verify complete end-to-end analysis pipeline
+  - Test with real polygon input
+  - Verify all real collectors execute (Overpass, Copernicus, USGS)
+  - Verify data collection from production APIs succeeds
+  - Verify standardization produces consistent output
+  - Verify rules generate meaningful results from real data
+  - Verify frontend displays results correctly
+  - Verify API responses have correct HTTP status codes
+  - Verify error handling works for provider failures
   - _Requirements: 1.0 through 11.0 (all)_
 
-### 13. Backend Tests - Unit Tests
+### 13. COMPREHENSIVE Unit Tests for Real Data Pipeline
 
-- [ ] 13.1 Implement unit tests for PolygonValidator
-  - Test valid polygons (various shapes and sizes)
-  - Test invalid GeoJSON structures
-  - Test invalid geometries
-  - Test coordinate validation
+- [ ] 13.1 Comprehensive unit tests for PolygonValidator with EXHAUSTIVE edge cases
+  - Test valid polygons: various shapes (triangle, square, pentagon, complex)
+  - Test valid polygons: various sizes (10m², 100m², 1km², 50km², 100km²)
+  - Test INVALID GeoJSON structures (missing coordinates, wrong format, null values)
+  - Test INVALID geometries (unclosed rings, self-intersecting, invalid winding order)
+  - Test coordinate validation: COMPLETE range validation (-180/-90 to 180/90)
+  - Test coordinate validation: boundary cases (exactly -180, -90, 180, 90)
+  - Test coordinate validation: out-of-bounds (±181, ±91)
+  - Test polygon size boundaries: exactly 10m², just over 10m², just under 100km², exactly 100km²
+  - Test polygon size boundaries: slightly invalid (9.99999m², 100.00001km²)
+  - Test vertex limits: 3 vertices (minimum), 100 vertices, 10,000 vertices (maximum), 10,001 (over limit)
+  - Test with real polygon from demonstration area
+  - Test ring closure: properly closed vs unclosed
+  - Test MultiPolygon handling
+  - Test error message clarity and specificity
+  - MINIMUM 50 unit test cases (covering all edge cases)
   - _Requirements: 1.3, 1.4_
+  - **MANDATORY**: Comprehensive edge case coverage for polygon validation
 
-- [ ] 13.2 Implement unit tests for all Collectors
-  - Test successful data retrieval
-  - Test provider unavailability handling
-  - Test timeout and retry logic
-  - Test error response handling
+- [ ] 13.2 Comprehensive unit tests for real data collectors
+  - Test EACH collector (OSM Buildings, Admin, Land Cover, Roads, Water, Elevation)
+  - Test EACH collector with real API calls (not mocked)
+  - Test timeout handling: verify collector handles timeout gracefully
+  - Test retry logic: verify retries execute and succeed
+  - Test provider unavailability: HTTP 500, network error, timeout, rate limit
+  - Test response parsing: valid response, malformed response, partial response
+  - Test error cases: verify errors logged and handled
+  - Test with various polygon sizes and locations
+  - Test rate limit delays: verify delays applied between requests
+  - Test response data structure: verify expected fields present
+  - Test metadata recording: verify source attribution preserved
+  - MINIMUM 60 unit test cases (10+ per collector)
   - _Requirements: 2.3, 2.4, 2.5_
+  - **MANDATORY**: Comprehensive real API testing for all collectors
 
-- [ ] 13.3 Implement unit tests for Data Standardizer
-  - Test field name normalization for each provider type
-  - Test CRS conversion to WGS84
-  - Test geometry normalization
-  - Test metadata preservation
+- [ ] 13.3 Comprehensive unit tests for Data Standardizer
+  - Test field name normalization: EVERY field from each provider
+  - Test CRS conversion: verify WGS84 output for all inputs
+  - Test geometry normalization: ensure consistent GeoJSON format
+  - Test metadata preservation: verify source_provider, timestamp, attribution
+  - Test standardization for ALL 6 data categories (buildings, admin, land_cover, roads, water, elevation)
+  - Test with real API response data from all collectors
+  - Test empty datasets: verify proper handling
+  - Test invalid data: verify error handling
+  - Test field mapping consistency: same provider always produces same field names
+  - Test coordinate transformation: verify mathematical accuracy of CRS conversion
+  - MINIMUM 80 unit test cases (covering all providers and categories)
   - _Requirements: 4.2, 4.3, 4.4_
+  - **MANDATORY**: Comprehensive standardization validation for all providers
 
-- [ ] 13.4 Implement unit tests for Rule Engine and rules
-  - Test each rule with valid standardized data
-  - Test rules with missing data (insufficient_data status)
-  - Test rule failure handling
-  - Test result compilation
+- [ ] 13.4 Comprehensive unit tests for Rule Engine
+  - Test EACH rule (AdministrativeRule, LandCoverRule, BuildingRule, RoadRule, WaterRule, ElevationRule)
+  - Test each rule with real standardized data
+  - Test rules with missing/insufficient data: verify "insufficient_data" status
+  - Test rule failure handling: verify error handling, logging
+  - Test result compilation: verify all results included
+  - Test individual rule logic: verify calculations correct
+  - Test rule output format: verify consistent structure
+  - Test rule execution order: verify consistent ordering
+  - Test rule independence: verify one rule failure doesn't affect others
+  - Test with various data scenarios (complete data, partial data, empty data)
+  - MINIMUM 100 unit test cases (covering all rules and scenarios)
   - _Requirements: 5.1 through 5.11_
+  - **MANDATORY**: Comprehensive rule engine testing
 
-- [ ] 13.5 Implement unit tests for Output Generator
-  - Test JSON output structure
-  - Test all required fields present
-  - Test status code mapping
-  - Test error formatting
+- [ ] 13.5 Comprehensive unit tests for Output Generator
+  - Test JSON output structure: verify valid JSON always produced
+  - Test ALL required fields present: request_id, status, timestamp, analysis_summary, land_information, processing_status, provider_status
+  - Test HTTP status code mapping: verify correct codes for all scenarios
+  - Test error formatting: verify readable error messages
+  - Test with successful analysis results
+  - Test with partial results (some providers failed)
+  - Test with failed analysis
+  - Test timestamp format: verify ISO8601
+  - Test nested structure completeness: verify all sub-fields present
+  - Test response size: verify reasonable size
+  - MINIMUM 60 unit test cases (covering all scenarios)
   - _Requirements: 6.1 through 6.8_
+  - **MANDATORY**: Comprehensive output validation
 
-- [ ] 13.6 Implement unit tests for API endpoints
-  - Test /analyze with valid polygon
-  - Test /analyze with invalid polygon
-  - Test /health endpoint
-  - Test /status endpoint
-  - Test HTTP status codes
+- [ ] 13.6 Comprehensive unit tests for API endpoints
+  - Test /analyze with valid polygon: verify HTTP 200, response structure
+  - Test /analyze with invalid polygon: verify HTTP 400/422, error message
+  - Test /analyze with polygon too small: verify HTTP 400/422
+  - Test /analyze with polygon too large: verify HTTP 400/422
+  - Test /analyze with too many vertices: verify HTTP 400/422
+  - Test /health endpoint response: verify status, fields
+  - Test /status endpoint response: verify provider list, rules list, version
+  - Test HTTP status codes: 200, 400, 422, 500 all working correctly
+  - Test error response format: verify consistent structure
+  - Test response headers: verify proper content types
+  - Test CORS handling: verify frontend can access
+  - Test request validation: verify invalid requests rejected
+  - MINIMUM 80 unit test cases (covering all endpoints and scenarios)
   - _Requirements: 9.1 through 9.7_
+  - **MANDATORY**: Comprehensive API endpoint testing
 
-### 14. Final Integration and Deployment Preparation
+### 14. Final Verification and Deployment
 
-- [ ] 14.1 Configure for Render deployment
-  - Create Procfile for Render
-  - Set up environment variables for production
-  - Ensure all dependencies are in requirements.txt
-  - Test local deployment simulation
-  - _Requirements: 11.7_
+- [ ] 14.1 Verify real data collection works end-to-end
+  - Test with multiple real polygons
+  - Verify all real providers return data
+  - Verify standardization works for all provider formats
+  - Verify rules generate meaningful results
+  - Check for any API rate limiting issues
+  - Document any provider-specific quirks
+  - _Requirements: 2.0 through 5.0_
 
-- [ ] 14.2 Final testing and validation
-  - Run complete test suite (all unit tests and property tests)
-  - Verify all property tests pass
-  - Verify all unit tests pass
-  - Manual end-to-end testing
+- [ ] 14.2 Run complete test suite (unit + property tests)
+  - Run all unit tests (ensure >95% pass rate)
+  - Run all property tests (minimum 100 iterations each)
+  - Verify all properties pass with real data
+  - Check code coverage
+  - Fix any failing tests
   - _Requirements: All_
 
 - [ ] 14.3 Verify prototype objectives are met
-  - Polygon input works correctly
-  - Data collection from providers succeeds
-  - Standardization produces consistent output
-  - Rule Engine generates meaningful information
-  - Frontend displays results correctly
-  - System handles errors gracefully
+  - Polygon input works correctly (frontend + backend)
+  - Real data collection succeeds from all providers
+  - Standardization is consistent across formats
+  - Rule Engine generates meaningful land information
+  - Frontend displays results clearly
+  - System handles provider failures gracefully
+  - Error messages are helpful and safe
+  - System responds within reasonable time
   - _Requirements: All_
+
+- [ ] 14.4 Prepare for Render deployment
+  - Create Procfile for Render
+  - Set up environment variables (provider endpoints)
+  - Verify requirements.txt has all dependencies with pinned versions
+  - Test local deployment simulation
+  - Create deployment documentation
+  - _Requirements: 11.7_
+
+- [ ] 14.5 Verify frontend and backend integration
+  - Test /analyze endpoint with real polygon from frontend
+  - Verify CORS works correctly
+  - Verify response format matches frontend expectations
+  - Verify error responses display correctly
+  - Test with various polygon sizes and locations
+  - _Requirements: 7.0 through 9.0_
 
 ---
 
 ## Notes
 
-- All tasks are required for comprehensive correctness validation.
-- Each task builds on previous tasks—complete them in sequence.
-- All code should be documented with clear comments explaining complex logic.
-- Configuration-driven behavior means changes to config/providers.json take effect without code changes.
-- Property tests require minimum 100 iterations as specified in the design document.
-- All tests use pytest and hypothesis (for property tests).
-- Frontend should be simple and focused on demonstration, not advanced UI features.
-- Property-based tests validate universal properties using random input generation.
-- Unit tests validate specific examples, edge cases, and error conditions.
+- **No Mock Data**: Every collector must make real HTTP requests to production APIs
+- **React Frontend**: Uses React 18 + TypeScript + Vite for optimal developer experience
+- **Polygon Validation**: Both frontend and backend validate size constraints (10 m² - 100 km²)
+- All tasks are required for a working, production-ready prototype
+- Complete tasks sequentially—each builds on previous work
+- Property tests require minimum 100 iterations with real-like data
+- All code must be well-documented with clear comments
+- Configuration files define provider endpoints (real APIs, not test endpoints)
+- Tests should use real provider data whenever possible
+- Frontend should be simple and focused on demonstration
+- Error handling must gracefully handle provider failures without crashing
+- All timestamps and responses must use ISO 8601 format
+- Logging must capture all important events for debugging
+- USGS Elevation API: Grid-based sampling (500m spacing) for efficiency
+- Copernicus Land Cover: STAC API search + GeoTIFF download + raster vectorization
+- Vite build tool provides fast development and optimized production builds

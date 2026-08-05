@@ -1,0 +1,565 @@
+{
+  "polygons": {
+    "valid_small": {
+      "id": "valid_small",
+      "area_sqkm": 0.025,
+      "location": "Central Park, NYC",
+      "source": "Real geographic location",
+      "coordinates": [-73.9822, 40.7684],
+      "intended_use": "Small area collection testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-73.9822, 40.7684],
+            [-73.9549, 40.7684],
+            [-73.9549, 40.8011],
+            [-73.9822, 40.8011],
+            [-73.9822, 40.7684]
+          ]
+        ]
+      }
+    },
+    "valid_medium": {
+      "id": "valid_medium",
+      "area_sqkm": 10.0,
+      "location": "Austin, Texas",
+      "source": "Real geographic location",
+      "coordinates": [-97.6, 30.3],
+      "intended_use": "Medium area collection testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-97.7, 30.2],
+            [-97.5, 30.2],
+            [-97.5, 30.4],
+            [-97.7, 30.4],
+            [-97.7, 30.2]
+          ]
+        ]
+      }
+    },
+    "valid_large": {
+      "id": "valid_large",
+      "area_sqkm": 50.0,
+      "location": "San Francisco Bay Area",
+      "source": "Real geographic location",
+      "coordinates": [-122.2, 37.5],
+      "intended_use": "Large area collection testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-122.5, 37.2],
+            [-121.8, 37.2],
+            [-121.8, 37.8],
+            [-122.5, 37.8],
+            [-122.5, 37.2]
+          ]
+        ]
+      }
+    },
+    "boundary_minimum": {
+      "id": "boundary_minimum",
+      "area_sqkm": 0.00001,
+      "location": "Minimum valid area",
+      "source": "Synthetic at origin",
+      "coordinates": [0, 0],
+      "intended_use": "Minimum size boundary testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [0.001, 0],
+            [0.001, 0.001],
+            [0, 0.001],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    "boundary_maximum": {
+      "id": "boundary_maximum",
+      "area_sqkm": 100.0,
+      "location": "Maximum valid area",
+      "source": "Synthetic at origin",
+      "coordinates": [0, 0],
+      "intended_use": "Maximum size boundary testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    "invalid_small": {
+      "id": "invalid_small",
+      "area_sqkm": 0.000005,
+      "location": "Below minimum area",
+      "source": "Synthetic at origin",
+      "coordinates": [0, 0],
+      "intended_use": "Invalid size testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [0.0001, 0],
+            [0.0001, 0.0001],
+            [0, 0.0001],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    "invalid_large": {
+      "id": "invalid_large",
+      "area_sqkm": 105.0,
+      "location": "Above maximum area",
+      "source": "Synthetic at origin",
+      "coordinates": [0, 0],
+      "intended_use": "Invalid size testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [10.5, 0],
+            [10.5, 10],
+            [0, 10],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    "high_vertex_count": {
+      "id": "high_vertex_count",
+      "area_sqkm": 5.0,
+      "location": "9,999 vertices",
+      "source": "Synthetic circular polygon",
+      "coordinates": [0, 0],
+      "intended_use": "High vertex count boundary testing",
+      "vertex_count": 9999,
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          []
+        ]
+      }
+    },
+    "over_vertex_limit": {
+      "id": "over_vertex_limit",
+      "area_sqkm": 5.0,
+      "location": "10,001 vertices",
+      "source": "Synthetic circular polygon",
+      "coordinates": [0, 0],
+      "intended_use": "Vertex count limit testing (should fail)",
+      "vertex_count": 10001,
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          []
+        ]
+      }
+    },
+    "equator_crossing": {
+      "id": "equator_crossing",
+      "area_sqkm": 5.0,
+      "location": "Crossing equator",
+      "source": "Real geographic feature",
+      "coordinates": [0, 0],
+      "intended_use": "Equator boundary testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, -0.05],
+            [0.05, -0.05],
+            [0.05, 0.05],
+            [0, 0.05],
+            [0, -0.05]
+          ]
+        ]
+      }
+    },
+    "pole_region": {
+      "id": "pole_region",
+      "area_sqkm": 5.0,
+      "location": "Near North Pole (85°N)",
+      "source": "Real geographic region",
+      "coordinates": [0, 85],
+      "intended_use": "Pole region testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 80],
+            [5, 80],
+            [5, 85],
+            [0, 85],
+            [0, 80]
+          ]
+        ]
+      }
+    },
+    "south_pole_region": {
+      "id": "south_pole_region",
+      "area_sqkm": 5.0,
+      "location": "Near South Pole (-85°S)",
+      "source": "Real geographic region",
+      "coordinates": [0, -85],
+      "intended_use": "South pole region testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, -85],
+            [5, -85],
+            [5, -80],
+            [0, -80],
+            [0, -85]
+          ]
+        ]
+      }
+    },
+    "antimeridian_crossing": {
+      "id": "antimeridian_crossing",
+      "area_sqkm": 5.0,
+      "location": "Crossing antimeridian (180°/-180°)",
+      "source": "Real geographic feature",
+      "coordinates": [180, 0],
+      "intended_use": "Antimeridian boundary testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [179.5, 0],
+            [180, 0],
+            [180, 5],
+            [179.5, 5],
+            [179.5, 0]
+          ]
+        ]
+      }
+    },
+    "urban_dense": {
+      "id": "urban_dense",
+      "area_sqkm": 2.0,
+      "location": "Manhattan, NYC",
+      "source": "Real geographic location",
+      "coordinates": [-73.97, 40.73],
+      "intended_use": "Urban data collection (high building/road density)",
+      "data_density": "high",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-74.01, 40.71],
+            [-73.93, 40.71],
+            [-73.93, 40.75],
+            [-74.01, 40.75],
+            [-74.01, 40.71]
+          ]
+        ]
+      }
+    },
+    "urban_medium": {
+      "id": "urban_medium",
+      "area_sqkm": 8.0,
+      "location": "Chicago area",
+      "source": "Real geographic location",
+      "coordinates": [-87.6, 41.85],
+      "intended_use": "Medium urban data collection",
+      "data_density": "medium",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-87.8, 41.7],
+            [-87.4, 41.7],
+            [-87.4, 42.0],
+            [-87.8, 42.0],
+            [-87.8, 41.7]
+          ]
+        ]
+      }
+    },
+    "rural_sparse": {
+      "id": "rural_sparse",
+      "area_sqkm": 5.0,
+      "location": "Rural Montana",
+      "source": "Real geographic location",
+      "coordinates": [-108.75, 47.25],
+      "intended_use": "Rural data collection (low building/road density)",
+      "data_density": "low",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-109, 47],
+            [-108.5, 47],
+            [-108.5, 47.5],
+            [-109, 47.5],
+            [-109, 47]
+          ]
+        ]
+      }
+    },
+    "ocean_area": {
+      "id": "ocean_area",
+      "area_sqkm": 10.0,
+      "location": "Atlantic Ocean",
+      "source": "Real geographic location",
+      "coordinates": [-49.5, 30.5],
+      "intended_use": "Ocean boundary testing (no buildings/roads)",
+      "data_density": "none",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-50, 30],
+            [-49, 30],
+            [-49, 31],
+            [-50, 31],
+            [-50, 30]
+          ]
+        ]
+      }
+    },
+    "admin_boundary": {
+      "id": "admin_boundary",
+      "area_sqkm": 50.0,
+      "location": "State of Texas (subset)",
+      "source": "Real administrative region",
+      "coordinates": [-98, 32],
+      "intended_use": "Administrative boundary testing",
+      "has_admin_data": true,
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-99, 31],
+            [-97, 31],
+            [-97, 33],
+            [-99, 33],
+            [-99, 31]
+          ]
+        ]
+      }
+    },
+    "mixed_terrain": {
+      "id": "mixed_terrain",
+      "area_sqkm": 8.0,
+      "location": "Mixed urban/rural",
+      "source": "Real geographic location",
+      "coordinates": [-87.55, 41.85],
+      "intended_use": "Mixed terrain collection (urban + rural + natural)",
+      "data_density": "mixed",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-87.6, 41.8],
+            [-87.5, 41.8],
+            [-87.5, 41.9],
+            [-87.6, 41.9],
+            [-87.6, 41.8]
+          ]
+        ]
+      }
+    },
+    "mountain_region": {
+      "id": "mountain_region",
+      "area_sqkm": 15.0,
+      "location": "Rocky Mountains, Colorado",
+      "source": "Real geographic location",
+      "coordinates": [-105.5, 39.5],
+      "intended_use": "Elevation/mountain data testing",
+      "elevation_range": "high",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-106, 39],
+            [-105, 39],
+            [-105, 40],
+            [-106, 40],
+            [-106, 39]
+          ]
+        ]
+      }
+    },
+    "water_region": {
+      "id": "water_region",
+      "area_sqkm": 12.0,
+      "location": "Great Lakes region",
+      "source": "Real geographic location",
+      "coordinates": [-82.5, 43],
+      "intended_use": "Water bodies/elevation data testing",
+      "water_features": "high",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-83, 42.5],
+            [-82, 42.5],
+            [-82, 43.5],
+            [-83, 43.5],
+            [-83, 42.5]
+          ]
+        ]
+      }
+    },
+    "quadrant_northeast": {
+      "id": "quadrant_northeast",
+      "area_sqkm": 4.0,
+      "location": "Northeast quadrant (positive lat/lon)",
+      "source": "Synthetic at NE quadrant",
+      "coordinates": [45, 45],
+      "intended_use": "NE quadrant testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [45, 45],
+            [46, 45],
+            [46, 46],
+            [45, 46],
+            [45, 45]
+          ]
+        ]
+      }
+    },
+    "quadrant_northwest": {
+      "id": "quadrant_northwest",
+      "area_sqkm": 4.0,
+      "location": "Northwest quadrant (negative lon, positive lat)",
+      "source": "Synthetic at NW quadrant",
+      "coordinates": [-45, 45],
+      "intended_use": "NW quadrant testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-46, 45],
+            [-45, 45],
+            [-45, 46],
+            [-46, 46],
+            [-46, 45]
+          ]
+        ]
+      }
+    },
+    "quadrant_southeast": {
+      "id": "quadrant_southeast",
+      "area_sqkm": 4.0,
+      "location": "Southeast quadrant (positive lon, negative lat)",
+      "source": "Synthetic at SE quadrant",
+      "coordinates": [45, -45],
+      "intended_use": "SE quadrant testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [45, -46],
+            [46, -46],
+            [46, -45],
+            [45, -45],
+            [45, -46]
+          ]
+        ]
+      }
+    },
+    "quadrant_southwest": {
+      "id": "quadrant_southwest",
+      "area_sqkm": 4.0,
+      "location": "Southwest quadrant (negative lat/lon)",
+      "source": "Synthetic at SW quadrant",
+      "coordinates": [-45, -45],
+      "intended_use": "SW quadrant testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-46, -46],
+            [-45, -46],
+            [-45, -45],
+            [-46, -45],
+            [-46, -46]
+          ]
+        ]
+      }
+    },
+    "precision_integer": {
+      "id": "precision_integer",
+      "area_sqkm": 1.0,
+      "location": "Integer precision coordinates",
+      "source": "Synthetic",
+      "coordinates": [0, 0],
+      "precision_decimals": 0,
+      "intended_use": "Coordinate precision testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    "precision_2decimal": {
+      "id": "precision_2decimal",
+      "area_sqkm": 1.0,
+      "location": "2 decimal precision coordinates",
+      "source": "Synthetic",
+      "coordinates": [0.12, 0.34],
+      "precision_decimals": 2,
+      "intended_use": "Coordinate precision testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0.12, 0.34],
+            [1.12, 0.34],
+            [1.12, 1.34],
+            [0.12, 1.34],
+            [0.12, 0.34]
+          ]
+        ]
+      }
+    },
+    "precision_6decimal": {
+      "id": "precision_6decimal",
+      "area_sqkm": 1.0,
+      "location": "6 decimal precision coordinates",
+      "source": "Synthetic",
+      "coordinates": [0.123456, 0.234567],
+      "precision_decimals": 6,
+      "intended_use": "Coordinate precision testing",
+      "geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0.123456, 0.234567],
+            [1.123456, 0.234567],
+            [1.123456, 1.234567],
+            [0.123456, 1.234567],
+            [0.123456, 0.234567]
+          ]
+        ]
+      }
+    }
+  }
+}

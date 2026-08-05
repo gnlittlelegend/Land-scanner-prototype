@@ -2,9 +2,9 @@
 
 ## Introduction
 
-Land Scanner is a geospatial data analysis platform designed to collect information from multiple open geospatial data sources and transform that information into useful land intelligence. This prototype validates the technical feasibility of a polygon-based workflow that combines open datasets without relying on heavy AI processing.
+Land Scanner is a geospatial data analysis platform designed to collect information from multiple production open geospatial data sources and transform that information into useful land intelligence. This prototype validates the technical feasibility of a polygon-based workflow that combines real production datasets without relying on heavy AI processing.
 
-The prototype must demonstrate the capability to accept a polygon, collect data from multiple providers, standardize collected information, process it using rule-based logic, and produce structured output through a simple web interface.
+The prototype must demonstrate the capability to accept a polygon, collect data from multiple live providers (not mock data), standardize collected information, process it using rule-based logic, and produce structured output through a simple web interface. All data collection must connect to real, production data sources.
 
 ## Glossary
 
@@ -29,8 +29,10 @@ The prototype must demonstrate the capability to accept a polygon, collect data 
 2. WHEN a user provides a polygon through the frontend, THE System SHALL receive it at the `/analyze` endpoint
 3. WHEN a polygon is received, THE System SHALL validate that it is valid GeoJSON
 4. WHEN a polygon is received, THE System SHALL validate that coordinates are in valid format
-5. IF the polygon is invalid, THEN THE System SHALL return a descriptive validation error
-6. IF the polygon is valid, THEN THE System SHALL proceed to data collection
+5. WHEN a polygon is received, THE System SHALL validate that polygon area is between 10 m² and 100 km²
+6. WHEN a polygon is received, THE System SHALL validate that polygon has no more than 10,000 vertices
+7. IF the polygon is invalid, THEN THE System SHALL return a descriptive validation error
+8. IF the polygon is valid, THEN THE System SHALL proceed to data collection
 
 ---
 
@@ -122,15 +124,16 @@ The prototype must demonstrate the capability to accept a polygon, collect data 
 
 #### Acceptance Criteria
 
-1. THE Frontend SHALL display an interactive map
-2. THE Frontend SHALL allow users to draw polygons on the map
-3. THE Frontend SHALL allow users to upload GeoJSON files
-4. WHEN a polygon is created or uploaded, THE Frontend SHALL display it on the map
-5. THE Frontend SHALL provide an "Analyze" button to submit analysis requests
-6. WHEN the Analyze button is clicked, THE Frontend SHALL send the polygon to the backend
-7. WHEN analysis completes, THE Frontend SHALL display the returned land information
-8. IF analysis encounters errors, THE Frontend SHALL display readable error messages
-9. THE Frontend SHALL display processing status to the user
+1. THE System SHALL display an interactive map using Leaflet.js
+2. THE System SHALL allow users to draw polygons on the map using Leaflet.Draw
+3. THE System SHALL allow users to upload GeoJSON files from their computer
+4. WHEN a polygon is created or uploaded, THE System SHALL display it on the map with visual feedback
+5. THE System SHALL validate polygon size (10 m² minimum, 100 km² maximum) before submission
+6. THE System SHALL provide an "Analyze" button to submit valid analysis requests
+7. WHEN the Analyze button is clicked, THE System SHALL send the polygon to the backend /analyze endpoint
+8. WHEN analysis completes, THE System SHALL display the returned land information in organized tabs
+9. IF analysis encounters errors, THE System SHALL display readable error messages
+10. THE System SHALL display processing status and progress to the user during analysis
 
 ---
 
@@ -214,3 +217,22 @@ The prototype must demonstrate the capability to accept a polygon, collect data 
 6. THE System SHALL collect Elevation data
 7. WHEN data collection begins, THE System SHALL query all configured providers
 8. WHERE a provider is Optional, THE System MAY continue if that provider is unavailable
+
+---
+
+### Requirement 13: Test Data Management
+
+**User Story:** As a testing system, I need centralized test data management, so that tests are efficient, consistent, and don't generate duplicate data.
+
+#### Acceptance Criteria
+
+1. THE System SHALL maintain centralized test data fixtures for all polygon variations
+2. WHEN tests request polygon data, THE System SHALL provide data from shared fixtures (not generate new data)
+3. WHEN tests need provider responses, THE System SHALL cache and reuse real API responses
+4. WHERE multiple tests request identical data, THE System SHALL serve from cache (only one real API call)
+5. WHEN provider data is cached, THE System SHALL record timestamp, version, and source metadata
+6. THE System SHALL support cache refresh (manual and automatic) without code changes
+7. WHEN tests execute, THE System SHALL track cache hit rate and API call efficiency
+8. WHEN comparing test results, THE System SHALL ensure same inputs produce identical results (deterministic)
+9. THE System SHALL never generate duplicate test polygons during property-based testing
+10. WHERE tests share fixtures, THE System SHALL guarantee data consistency across all tests

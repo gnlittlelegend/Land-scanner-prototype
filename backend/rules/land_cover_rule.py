@@ -1,13 +1,12 @@
 """
 Land Cover Summary Rule (LC-001)
 
-Processes land cover data to summarize dominant land cover types and calculate
-coverage percentages.
+Processes land cover data to identify dominant land surface categories and
+calculate coverage percentages by category.
 """
 
 import logging
 from typing import Dict, Any
-from collections import Counter
 
 from backend.models.schemas import (
     StandardizedDataset,
@@ -24,8 +23,19 @@ class LandCoverRule(Rule):
     """
     Land Cover Summary Rule implementation.
     
-    Summarizes land cover types and calculates coverage percentages.
+    Identifies dominant land cover types and calculates coverage percentages.
     """
+    
+    # Land cover categories mapping from provider codes to standardized names
+    LAND_COVER_CATEGORIES = {
+        "urban": ["urban", "built-up", "settlement", "urban_area", "town", "city"],
+        "agricultural": ["cropland", "agricultural", "crop", "arable", "cultivated", "farmland", "crops"],
+        "forest": ["forest", "tree_cover", "woodland", "deciduous", "coniferous", "mixed_forest"],
+        "grassland": ["grassland", "grass", "meadow", "pasture", "shrubland", "savanna"],
+        "water": ["water", "water_body", "lake", "river", "ocean", "sea", "wetland"],
+        "barren": ["barren", "bare", "rock", "desert", "unvegetated", "sand"],
+        "wetland": ["wetland", "marsh", "swamp", "bog", "fen"]
+    }
     
     def __init__(self):
         super().__init__(
@@ -56,48 +66,72 @@ class LandCoverRule(Rule):
                     metadata={"data_points_used": 0}
                 )
             
-            # Collect land cover types and their frequencies
-            land_cover_types = []
-            land_cover_counts = Counter()
-            
+            # Analyze land cover data
+            category_coverage = {}
+            total_coverage = 0
             data_points_used = 0
             
             for feature in lc_dataset.features:
                 props = feature.properties or {}
                 
-                # Extract land cover type and classification
-                lc_type = props.get("land_cover_type") or props.get("type") or "Unknown"
-                lc_classification = props.get("classification") or props.get("class") or "Unclassified"
+                # Extract land cover type
+                lc_type = self._extract_land_cover_type(props)
                 
-                land_cover_types.append({
-                    "type": lc_type,
-                    "classification": lc_classification,
-                    "confidence": props.get("confidence", 0.0)
-                })
+                # Initialize category if not seen before
+                if lc_type not in category_coverage:
+                    category_coverage[lc_type] = {"count": 0, "percentage": 0}
                 
-                land_cover_counts[lc_classification] += 1
+                # Increment count
+                category_coverage[lc_type]["count"] += 1
+                
+                # Try to extract coverage or area information
+                if "coverage" in props:
+                    try:
+                        category_coverage[lc_type]["percentage"] += float(props["coverage"])
+                    except (ValueError, TypeError):
+                        pass
+                
                 data_points_used += 1
             
-            # Calculate percentages (simplified - based on feature count)
-            total_features = len(lc_dataset.features)
-            coverage_summary = {}
+            # Normalize percentages
+            if category_coverage:
+                total_count = sum(cat["count"] for cat in category_coverage.values())
+                for category in category_coverage.values():
+                    if category["percentage"] > 0:
+                        # Already has percentage from coverage data
+                        total_coverage += category["percentage"]
+                    else:
+                        # Calculate percentage from count
+                        category["percentage"] = round((category["count"] / total_count) * 100, 2)
             
-            if total_features > 0:
-                for lc_class, count in land_cover_counts.items():
-                    coverage_summary[lc_class] = {
-                        "count": count,
-                        "percentage": round((count / total_features) * 100, 2)
-                    }
+            # Normalize if total exceeds 100 (from coverage data)
+            if total_coverage > 100:
+                for category in category_coverage.values():
+                    category["percentage"] = round((category["percentage"] / total_coverage) * 100, 2)
             
-            # Determine primary land cover type
-            primary_lc = land_cover_counts.most_common(1)[0][0] if land_cover_counts else "Unknown"
+            # Determine dominant cover type
+            dominant_type = None
+            max_percentage = 0
+            for category, data in category_coverage.items():
+                if data["percentage"] > max_percentage:
+                    max_percentage = data["percentage"]
+                    dominant_type = category
             
+            # Build result output
             result_output = {
-                "primary_land_cover": primary_lc,
-                "land_cover_types": land_cover_types[:10],  # Limit to top 10 for readability
-                "coverage_breakdown": coverage_summary,
-                "total_features_analyzed": total_features,
-                "dominant_coverage_percentage": coverage_summary.get(primary_lc, {}).get("percentage", 0.0)
+                "dominant_land_cover": dominant_type or "Unknown",
+                "dominant_coverage_percentage": max_percentage,
+                "land_cover_summary": {
+                    category: {
+                        "count": data["count"],
+                        "percentage": data["percentage"]
+                    }
+                    for category, data in sorted(category_coverage.items(), 
+                                                 key=lambda x: x[1]["percentage"], 
+                                                 reverse=True)
+                },
+                "land_cover_categories_detected": list(category_coverage.keys()),
+                "total_categories_identified": len(category_coverage)
             }
             
             return RuleResult(
@@ -111,3 +145,50 @@ class LandCoverRule(Rule):
         except Exception as e:
             logger.error(f"Error executing {self.rule_id}: {str(e)}", exc_info=True)
             raise
+    
+    def _extract_land_cover_type(self, properties: Dict[str, Any]) -> str:
+        """
+        Extract land cover type from feature properties.
+        
+        Handles various provider-specific naming conventions and normalizes
+        to standard categories.
+        
+        Args:
+            properties: Feature properties from standardized dataset
+            
+        Returns:
+            Standardized land cover category name
+        """
+        # Check for common land cover property names
+        lc_type = None
+        
+        # Try standard field names
+        if "land_cover_type" in properties:
+            lc_type = properties["land_cover_type"]
+        elif "land_cover" in properties:
+            lc_type = properties["land_cover"]
+        elif "type" in properties:
+            lc_type = properties["type"]
+        elif "class" in properties:
+            lc_type = properties["class"]
+        elif "category" in properties:
+            lc_type = properties["category"]
+        elif "cover_type" in properties:
+            lc_type = properties["cover_type"]
+        else:
+            return "unknown"
+        
+        if not lc_type:
+            return "unknown"
+        
+        # Normalize the type to lowercase
+        lc_type = str(lc_type).lower().strip()
+        
+        # Map to standard categories
+        for standard_category, variations in self.LAND_COVER_CATEGORIES.items():
+            for variation in variations:
+                if variation in lc_type or lc_type == variation:
+                    return standard_category
+        
+        # If no match found, return the normalized type as-is
+        return lc_type

@@ -1,19 +1,4 @@
-﻿"""Validators module for input validation."""
+﻿"""Validators package for Land Scanner Prototype."""
+from backend.validators.data_validator import DataValidator, ValidationStatus, ValidationResult
 
-from backend.validators.polygon_validator import (
-    PolygonValidator,
-    PolygonValidationError
-)
-from backend.validators.data_validator import (
-    DataValidator,
-    DataValidationError,
-    DatasetValidationResult
-)
-
-__all__ = [
-    "PolygonValidator",
-    "PolygonValidationError",
-    "DataValidator",
-    "DataValidationError",
-    "DatasetValidationResult"
-]
+__all__ = ["DataValidator", "ValidationStatus", "ValidationResult"]

@@ -1,24 +1,30 @@
 """
-Output Generator
+Output Generator for Land Scanner Prototype.
 
-Compiles rule results and processing status into structured analysis responses.
-Formats data for frontend consumption while ensuring provider-specific formats
-are never exposed to users.
+Compiles rule results, provider status, and processing information into a
+structured AnalysisResponse suitable for API responses and frontend display.
+
+Responsibilities:
+- Compile rule results into land_information section
+- Build analysis_summary with key findings
+- Create processing_status for each module
+- Track provider status and availability
+- Generate error summary if failures occurred
+- Return valid, well-formatted AnalysisResponse
 """
 
+import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-import logging
 import uuid
 
-from backend.models import (
+from backend.models.schemas import (
     AnalysisResponse,
-    ProcessingStatus,
     RuleResult,
-    ModuleStatus,
     ProviderStatus,
-    ErrorInfo,
-    Polygon as PolygonModel
+    ProcessingStatus,
+    StandardizedDataset,
+    DataCategory
 )
 
 logger = logging.getLogger(__name__)
@@ -26,281 +32,334 @@ logger = logging.getLogger(__name__)
 
 class OutputGenerator:
     """
-    Generates structured analysis responses from rule results and processing status.
+    Generates structured output from processing pipeline results.
     
-    Responsibilities:
-    - Compile rule results into analysis summary
-    - Build JSON response with all required fields
-    - Include processing status for each module
-    - Include provider status information
-    - Never expose raw provider-specific data
-    - Format data for frontend consumption
+    Takes rule results, provider status, and processing metadata and produces
+    a complete AnalysisResponse ready for API responses.
     """
     
     def __init__(self):
-        """Initialize the output generator."""
-        pass
+        """Initialize the Output Generator."""
+        self.request_id = str(uuid.uuid4())
     
     def generate(
         self,
-        rules_results: Dict[str, RuleResult],
-        processing_status: Dict[str, ModuleStatus],
-        provider_status: Dict[str, Dict[str, Any]],
-        polygon: Optional[PolygonModel] = None,
-        request_id: Optional[str] = None,
-        processing_time_ms: float = 0.0,
-        errors: Optional[List[ErrorInfo]] = None
+        rule_results: Dict[str, RuleResult],
+        provider_status: List[ProviderStatus],
+        polygon_info: Dict[str, Any],
+        processing_status: Dict[str, str],
+        processing_time_ms: float,
+        standardized_datasets: Optional[Dict[DataCategory, StandardizedDataset]] = None,
+        errors: Optional[List[Dict[str, str]]] = None
     ) -> AnalysisResponse:
         """
-        Generate a complete analysis response.
+        Generate complete AnalysisResponse from processing results.
         
         Args:
-            rules_results: Dictionary of rule results indexed by rule category
-            processing_status: Dictionary of module execution statuses
-            provider_status: Dictionary of provider statuses
-            polygon: The analyzed polygon (optional)
-            request_id: Unique request identifier (generated if not provided)
-            processing_time_ms: Total processing time in milliseconds
-            errors: List of errors encountered during processing
+            rule_results: Dictionary mapping rule_id to RuleResult
+            provider_status: List of ProviderStatus objects
+            polygon_info: Information about input polygon (area, bounds, etc.)
+            processing_status: Dictionary mapping module name to status string
+            processing_time_ms: Total time to process polygon in milliseconds
+            standardized_datasets: Optional dict of standardized datasets (for analysis summary)
+            errors: Optional list of error dictionaries
             
         Returns:
-            AnalysisResponse object ready for JSON serialization
+            AnalysisResponse with all required sections
         """
-        if request_id is None:
-            request_id = self._generate_request_id()
-        
-        if errors is None:
-            errors = []
+        logger.info(f"Generating output for request {self.request_id}")
         
         # Determine overall status
-        overall_status = self._determine_overall_status(
-            processing_status,
-            provider_status,
-            errors
-        )
+        overall_status = self._determine_overall_status(rule_results, errors)
         
-        # Build analysis summary
+        # Build land_information from rule results
+        land_information = self._compile_land_information(rule_results)
+        
+        # Build analysis_summary
         analysis_summary = self._build_analysis_summary(
-            polygon,
-            rules_results,
-            processing_status
+            polygon_info,
+            rule_results,
+            standardized_datasets or {}
         )
         
-        # Convert provider status dict to list format
-        provider_status_list = self._convert_provider_status_to_list(provider_status)
+        # Build error summary
+        error_summary = self._build_error_summary(rule_results, errors)
         
         # Create response
         response = AnalysisResponse(
-            request_id=request_id,
             status=overall_status,
-            timestamp=datetime.utcnow(),
-            processing_time_ms=processing_time_ms,
+            polygon_info=polygon_info,
             analysis_summary=analysis_summary,
-            land_information=rules_results,
-            processing_status={
-                name: status for name, status in processing_status.items()
-            },
-            provider_status=provider_status_list,
-            errors=errors
+            land_information=land_information,
+            processing_status=processing_status,
+            provider_status=provider_status,
+            error_summary=error_summary if error_summary else None,
+            timestamp=datetime.utcnow().isoformat() + "Z"
         )
         
-        logger.info(
-            f"Generated analysis response {request_id}: "
-            f"status={overall_status}, "
-            f"rules_executed={len(rules_results)}, "
-            f"errors={len(errors)}"
-        )
+        logger.info(f"Output generated successfully with status: {overall_status}")
         
         return response
     
-    def _generate_request_id(self) -> str:
-        """Generate a unique request ID."""
-        return f"req_{uuid.uuid4().hex[:12]}"
-    
     def _determine_overall_status(
         self,
-        processing_status: Dict[str, ModuleStatus],
-        provider_status: Dict[str, Dict[str, Any]],
-        errors: List[ErrorInfo]
-    ) -> ProcessingStatus:
+        rule_results: Dict[str, RuleResult],
+        errors: Optional[List[Dict[str, str]]]
+    ) -> str:
         """
-        Determine overall processing status.
+        Determine overall analysis status.
         
-        Logic:
-        - SUCCESS: All modules succeeded, no errors
-        - PARTIAL: Some modules/providers failed but partial data available
-        - FAILED: All critical modules failed
+        Rules:
+        - "success": All rules succeeded, no errors
+        - "partial": Some rules succeeded, some failed/insufficient or some providers failed
+        - "failed": All rules failed or critical failure occurred
+        
+        Args:
+            rule_results: Dictionary of rule results
+            errors: Optional error list
+            
+        Returns:
+            Overall status string
         """
-        # Check if any critical module failed
-        critical_modules = {"validation", "data_collection", "standardization", "rule_engine"}
-        critical_failures = [
-            name for name in critical_modules
-            if name in processing_status and
-            processing_status[name].status == ProcessingStatus.FAILED
-        ]
+        if not rule_results:
+            return "failed"
         
-        if critical_failures:
-            return ProcessingStatus.FAILED
-        
-        # Check if any module had issues
-        has_failures = any(
-            status.status in (ProcessingStatus.FAILED, ProcessingStatus.INSUFFICIENT_DATA)
-            for status in processing_status.values()
+        # Count rule statuses
+        success_count = sum(
+            1 for r in rule_results.values()
+            if r.status == ProcessingStatus.SUCCESS
+        )
+        failed_count = sum(
+            1 for r in rule_results.values()
+            if r.status == ProcessingStatus.FAILED
         )
         
-        has_provider_errors = any(
-            status.get("status") == "error"
-            for status in provider_status.values()
-        )
+        total_rules = len(rule_results)
         
-        if has_failures or has_provider_errors or errors:
-            return ProcessingStatus.PARTIAL
+        # If all succeeded and no external errors
+        if success_count == total_rules and (not errors or len(errors) == 0):
+            return "success"
         
-        return ProcessingStatus.SUCCESS
+        # If all failed
+        if failed_count == total_rules:
+            return "failed"
+        
+        # If mixed or some errors
+        return "partial"
+    
+    def _compile_land_information(
+        self,
+        rule_results: Dict[str, RuleResult]
+    ) -> Dict[str, Any]:
+        """
+        Compile land_information from rule results.
+        
+        Converts rule results into user-facing land information structure.
+        
+        Args:
+            rule_results: Dictionary mapping rule_id to RuleResult
+            
+        Returns:
+            Dictionary with land information by category
+        """
+        land_information = {
+            "administrative": None,
+            "land_cover": None,
+            "buildings": None,
+            "roads": None,
+            "water": None,
+            "elevation": None
+        }
+        
+        # Map rule results to land categories
+        rule_to_category = {
+            "ADM-001": "administrative",
+            "LC-001": "land_cover",
+            "BLD-001": "buildings",
+            "RD-001": "roads",
+            "WT-001": "water",
+            "ELV-001": "elevation"
+        }
+        
+        for rule_id, rule_result in rule_results.items():
+            category = rule_to_category.get(rule_id)
+            
+            if category:
+                # Include result only if rule succeeded
+                if rule_result.status == ProcessingStatus.SUCCESS:
+                    land_information[category] = {
+                        "status": "available",
+                        "data": rule_result.result,
+                        "metadata": rule_result.metadata
+                    }
+                elif rule_result.status == ProcessingStatus.INSUFFICIENT_DATA:
+                    land_information[category] = {
+                        "status": "insufficient_data",
+                        "data": None,
+                        "reason": "Required data not available from providers"
+                    }
+                else:  # FAILED
+                    land_information[category] = {
+                        "status": "error",
+                        "data": None,
+                        "error": rule_result.metadata.get("error", "Unknown error")
+                    }
+        
+        return land_information
     
     def _build_analysis_summary(
         self,
-        polygon: Optional[PolygonModel],
-        rules_results: Dict[str, RuleResult],
-        processing_status: Dict[str, ModuleStatus]
+        polygon_info: Dict[str, Any],
+        rule_results: Dict[str, RuleResult],
+        standardized_datasets: Dict[DataCategory, StandardizedDataset]
     ) -> Dict[str, Any]:
         """
-        Build high-level analysis summary.
+        Build analysis_summary with key findings.
         
-        Extracts key information from rule results and polygon metadata.
-        Never includes raw provider data.
+        Args:
+            polygon_info: Input polygon information
+            rule_results: Rule execution results
+            standardized_datasets: Standardized datasets used
+            
+        Returns:
+            Dictionary with analysis summary
         """
-        summary: Dict[str, Any] = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "key_findings": []
+        # Extract polygon area
+        polygon_area_sqkm = polygon_info.get("area_sqkm", 0)
+        bounding_box = polygon_info.get("bounding_box", [])
+        
+        # Determine primary land cover
+        primary_land_cover = "Unknown"
+        lc_result = rule_results.get("LC-001")
+        if lc_result and lc_result.status == ProcessingStatus.SUCCESS:
+            lc_data = lc_result.result
+            if "dominant_land_cover" in lc_data:
+                primary_land_cover = lc_data["dominant_land_cover"]
+            elif "land_cover_summary" in lc_data and isinstance(lc_data["land_cover_summary"], list):
+                if len(lc_data["land_cover_summary"]) > 0:
+                    primary_land_cover = lc_data["land_cover_summary"][0].get("type", "Unknown")
+        
+        # Generate key findings
+        key_findings = self._generate_key_findings(rule_results, standardized_datasets)
+        
+        return {
+            "polygon_area_sqkm": round(polygon_area_sqkm, 2),
+            "bounding_box": bounding_box,
+            "analysis_date": datetime.utcnow().isoformat() + "Z",
+            "primary_land_cover": primary_land_cover,
+            "key_findings": key_findings
         }
-        
-        # Add polygon metadata if available
-        if polygon:
-            summary["polygon_area_sqkm"] = polygon.area_sqkm
-            summary["bounding_box"] = polygon.bounding_box
-        
-        # Extract high-level findings from rules
-        if "admin" in rules_results and rules_results["admin"].status == ProcessingStatus.SUCCESS:
-            admin_info = rules_results["admin"].result
-            if admin_info:
-                summary["administrative_region"] = admin_info.get("administrative_region", "Unknown")
-                if admin_info.get("country"):
-                    summary["key_findings"].append(
-                        f"Located in {admin_info.get('country')}"
-                    )
-        
-        if "land_cover" in rules_results and rules_results["land_cover"].status == ProcessingStatus.SUCCESS:
-            lc_info = rules_results["land_cover"].result
-            if lc_info and "primary_land_cover" in lc_info:
-                summary["primary_land_cover"] = lc_info["primary_land_cover"]
-                summary["key_findings"].append(
-                    f"Primary land cover: {lc_info['primary_land_cover']}"
-                )
-        
-        if "buildings" in rules_results and rules_results["buildings"].status == ProcessingStatus.SUCCESS:
-            bld_info = rules_results["buildings"].result
-            if bld_info:
-                if bld_info.get("buildings_detected"):
-                    summary["key_findings"].append("Buildings detected in area")
-        
-        if "roads" in rules_results and rules_results["roads"].status == ProcessingStatus.SUCCESS:
-            rd_info = rules_results["roads"].result
-            if rd_info:
-                if rd_info.get("road_access_available"):
-                    summary["key_findings"].append("Road access available")
-        
-        if "water" in rules_results and rules_results["water"].status == ProcessingStatus.SUCCESS:
-            wt_info = rules_results["water"].result
-            if wt_info:
-                if wt_info.get("water_features_detected"):
-                    summary["key_findings"].append("Water features detected")
-        
-        if "elevation" in rules_results and rules_results["elevation"].status == ProcessingStatus.SUCCESS:
-            elv_info = rules_results["elevation"].result
-            if elv_info:
-                if "mean_elevation_m" in elv_info:
-                    summary["key_findings"].append(
-                        f"Mean elevation: {elv_info['mean_elevation_m']:.0f}m"
-                    )
-        
-        # Check processing status
-        if processing_status:
-            validation_status = processing_status.get("validation")
-            if validation_status and validation_status.status == ProcessingStatus.FAILED:
-                summary["validation_status"] = "failed"
-        
-        return summary
     
-    def _convert_provider_status_to_list(
+    def _generate_key_findings(
         self,
-        provider_status: Dict[str, Dict[str, Any]]
-    ) -> List[ProviderStatus]:
+        rule_results: Dict[str, RuleResult],
+        standardized_datasets: Dict[DataCategory, StandardizedDataset]
+    ) -> List[str]:
         """
-        Convert provider status dictionary to list of ProviderStatus objects.
+        Generate key findings from rule results.
         
         Args:
-            provider_status: Dictionary mapping provider names to status dicts
+            rule_results: Rule execution results
+            standardized_datasets: Standardized datasets
             
         Returns:
-            List of ProviderStatus objects
+            List of key finding strings
         """
-        status_list = []
+        findings = []
         
-        for provider_name, status_dict in provider_status.items():
-            provider_status_obj = ProviderStatus(
-                provider_name=provider_name,
-                status=status_dict.get("status", "unknown"),
-                error_message=status_dict.get("error_message"),
-                data_retrieved=status_dict.get("data_retrieved", False)
-            )
-            status_list.append(provider_status_obj)
+        # Administrative findings
+        adm_result = rule_results.get("ADM-001")
+        if adm_result and adm_result.status == ProcessingStatus.SUCCESS:
+            adm_data = adm_result.result
+            if adm_data.get("country"):
+                findings.append(f"Located in {adm_data.get('country')}")
+            if adm_data.get("state"):
+                findings.append(f"Part of {adm_data.get('state')} state/province")
         
-        return status_list
+        # Building findings
+        bld_result = rule_results.get("BLD-001")
+        if bld_result and bld_result.status == ProcessingStatus.SUCCESS:
+            bld_data = bld_result.result
+            building_count = bld_data.get("building_count", 0)
+            if building_count > 0:
+                findings.append(f"Contains approximately {building_count} buildings")
+        
+        # Land cover findings
+        lc_result = rule_results.get("LC-001")
+        if lc_result and lc_result.status == ProcessingStatus.SUCCESS:
+            lc_data = lc_result.result
+            if "dominant_land_cover" in lc_data:
+                findings.append(f"Dominated by {lc_data.get('dominant_land_cover')} land cover")
+        
+        # Road findings
+        rd_result = rule_results.get("RD-001")
+        if rd_result and rd_result.status == ProcessingStatus.SUCCESS:
+            rd_data = rd_result.result
+            if rd_data.get("road_access", False):
+                findings.append("Has accessible road network")
+        
+        # Water findings
+        wt_result = rule_results.get("WT-001")
+        if wt_result and wt_result.status == ProcessingStatus.SUCCESS:
+            wt_data = wt_result.result
+            if wt_data.get("has_water", False):
+                findings.append("Contains water bodies")
+        
+        # Elevation findings
+        elv_result = rule_results.get("ELV-001")
+        if elv_result and elv_result.status == ProcessingStatus.SUCCESS:
+            elv_data = elv_result.result
+            min_elv = elv_data.get("min_elevation")
+            max_elv = elv_data.get("max_elevation")
+            if min_elv is not None and max_elv is not None:
+                elevation_range = int(max_elv - min_elv)
+                if elevation_range > 0:
+                    findings.append(f"Elevation ranges over {elevation_range}m")
+        
+        return findings
     
-    @staticmethod
-    def validate_response(response: AnalysisResponse) -> bool:
+    def _build_error_summary(
+        self,
+        rule_results: Dict[str, RuleResult],
+        errors: Optional[List[Dict[str, str]]]
+    ) -> Optional[Dict[str, Any]]:
         """
-        Validate that response has all required fields.
-        
-        Checks for:
-        - request_id presence
-        - status presence
-        - analysis_summary presence
-        - land_information presence
-        - processing_status presence
-        - provider_status presence
-        - no raw provider data exposure
+        Build error summary if any failures occurred.
         
         Args:
-            response: AnalysisResponse to validate
+            rule_results: Rule execution results
+            errors: Optional external errors
             
         Returns:
-            True if response is valid, False otherwise
+            Error summary dict or None if no errors
         """
-        if not response.request_id:
-            logger.error("Response validation failed: missing request_id")
-            return False
+        error_list = []
         
-        if not response.status:
-            logger.error("Response validation failed: missing status")
-            return False
+        # Collect rule errors
+        for rule_id, rule_result in rule_results.items():
+            if rule_result.status == ProcessingStatus.FAILED:
+                error_msg = rule_result.metadata.get("error", "Unknown error")
+                error_list.append({
+                    "source": f"Rule {rule_id}",
+                    "message": error_msg,
+                    "type": "rule_failure"
+                })
+            elif rule_result.status == ProcessingStatus.INSUFFICIENT_DATA:
+                error_list.append({
+                    "source": f"Rule {rule_id}",
+                    "message": "Required data not available",
+                    "type": "insufficient_data"
+                })
         
-        if response.analysis_summary is None:
-            logger.error("Response validation failed: missing analysis_summary")
-            return False
+        # Add external errors
+        if errors:
+            error_list.extend(errors)
         
-        if response.land_information is None:
-            logger.error("Response validation failed: missing land_information")
-            return False
+        if error_list:
+            return {
+                "error_count": len(error_list),
+                "errors": error_list
+            }
         
-        if response.processing_status is None:
-            logger.error("Response validation failed: missing processing_status")
-            return False
-        
-        if response.provider_status is None:
-            logger.error("Response validation failed: missing provider_status")
-            return False
-        
-        return True
+        return None
 

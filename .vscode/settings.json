@@ -1,2 +1,5 @@
 {
+    "kiroAgent.notifications.agent.failure": true,
+    "kiroAgent.notifications.agent.success": true,
+    "javascript.autoClosingTags": false
 }

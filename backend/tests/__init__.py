@@ -1,1 +1,1 @@
-# Backend test suite
+"""Test suite for Land Scanner"""

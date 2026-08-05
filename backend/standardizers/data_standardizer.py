@@ -8,9 +8,9 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pyproj import Transformer
 
-from backend.models.schemas import (
-    RawDataset, StandardizedDataset, Feature, DataCategory
-)
+from backend.data_models import RawDataset, StandardizedDataset, Feature
+from backend.standardizers.landcover_standardizer import LandCoverStandardizer
+from backend.standardizers.elevation_standardizer import ElevationStandardizer
 
 
 logger = logging.getLogger(__name__)
@@ -57,22 +57,32 @@ class DataStandardizer:
             )
 
             # Get standardization rules for this category
-            normalizer = self._get_category_normalizer(raw_dataset.category)
+            normalizer = self._get_category_normalizer(
+                raw_dataset.category, 
+                provider=raw_dataset.source_provider
+            )
 
             # Process features
             standardized_features = []
             for feature in raw_dataset.features:
                 try:
-                    std_feature = normalizer.normalize_feature(feature)
+                    # Convert feature dict if needed
+                    if hasattr(feature, 'model_dump'):
+                        feature_dict = feature.model_dump()
+                    elif hasattr(feature, 'dict'):
+                        feature_dict = feature.dict()
+                    else:
+                        feature_dict = feature
+
+                    std_feature = normalizer.normalize_feature(feature_dict)
                     standardized_features.append(std_feature)
                 except Exception as e:
                     logger.warning(
-                        f"Failed to standardize feature {feature.get('id', '?')}: {str(e)}"
+                        f"Failed to standardize feature: {str(e)}"
                     )
                     continue
 
             # Build standardized dataset
-            # Return dicts; Pydantic will convert to Feature objects
             standardized = StandardizedDataset(
                 category=raw_dataset.category,
                 source_provider=raw_dataset.source_provider,
@@ -81,8 +91,10 @@ class DataStandardizer:
                     "timestamp": datetime.utcnow().isoformat(),
                     "crs": "EPSG:4326",
                     "record_count": len(standardized_features),
+                    "source_provider": raw_dataset.source_provider,
                     "original_crs": raw_dataset.metadata.get("crs", "unknown"),
-                    "source_version": raw_dataset.metadata.get("version", "unknown")
+                    "source_version": raw_dataset.metadata.get("version", "unknown"),
+                    "version": raw_dataset.metadata.get("version", "unknown")
                 }
             )
 
@@ -98,17 +110,21 @@ class DataStandardizer:
                 f"Standardization failed for {raw_dataset.source_provider}: {str(e)}"
             )
 
-    def _get_category_normalizer(self, category: DataCategory) -> "CategoryNormalizer":
+    def _get_category_normalizer(self, category: str, provider: str = "unknown") -> "CategoryNormalizer":
         """Get the appropriate normalizer for a data category."""
+        category_lower = category.lower().replace("-", "_")
+        
         normalizers = {
-            DataCategory.BUILDINGS: BuildingsNormalizer(),
-            DataCategory.ADMIN: AdminBoundariesNormalizer(),
-            DataCategory.LAND_COVER: LandCoverNormalizer(),
-            DataCategory.ROADS: RoadsNormalizer(),
-            DataCategory.WATER: WaterNormalizer(),
-            DataCategory.ELEVATION: ElevationNormalizer(),
+            "buildings": BuildingsNormalizer(),
+            "admin": AdminBoundariesNormalizer(),
+            "admin_boundaries": AdminBoundariesNormalizer(),
+            "land_cover": LandCoverNormalizer(provider=provider),
+            "landcover": LandCoverNormalizer(provider=provider),
+            "roads": RoadsNormalizer(),
+            "water": WaterNormalizer(),
+            "elevation": ElevationNormalizer(),
         }
-        return normalizers.get(category, GenericNormalizer())
+        return normalizers.get(category_lower, GenericNormalizer())
 
 
 # ============================================================================
@@ -123,15 +139,26 @@ class CategoryNormalizer:
         Normalize a feature for this category.
 
         Args:
-            feature: Raw feature from provider
+            feature: Raw feature from provider (dict or Pydantic model)
 
         Returns:
             Standardized feature dictionary
         """
+        # Handle both dict and Pydantic model
+        if hasattr(feature, 'model_dump'):
+            # Pydantic v2 model
+            feature_dict = feature.model_dump()
+        elif hasattr(feature, 'dict'):
+            # Pydantic v1 model
+            feature_dict = feature.dict()
+        else:
+            # Already a dict
+            feature_dict = feature
+
         # Extract components
-        feature_id = feature.get("id", "")
-        geometry = feature.get("geometry", {})
-        properties = feature.get("properties", {})
+        feature_id = feature_dict.get("id", "")
+        geometry = feature_dict.get("geometry", {})
+        properties = feature_dict.get("properties", {})
 
         # Normalize properties
         normalized_props = self.normalize_properties(properties)
@@ -238,31 +265,47 @@ class AdminBoundariesNormalizer(CategoryNormalizer):
 
 
 class LandCoverNormalizer(CategoryNormalizer):
-    """Normalizes land cover classification properties."""
-
-    LAND_COVER_MAP = {
-        10: "tree_cover",
-        20: "shrubland",
-        30: "herbaceous_vegetation",
-        40: "cropland",
-        50: "built_up",
-        60: "bare_ground",
-        70: "snow_ice",
-        80: "water",
-        90: "clouds",
-    }
+    """
+    Normalizes land cover classification properties.
+    
+    Uses LandCoverStandardizer to handle provider-specific land cover formats.
+    Supports Copernicus GLC, ESA WorldCover, and other land cover providers.
+    """
+    
+    def __init__(self, provider: str = "copernicus"):
+        """Initialize with optional provider info."""
+        self.provider = provider
 
     def normalize_properties(self, properties: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize land cover properties to common schema."""
-        lc_code = properties.get("lc_code", 0)
-        lc_class = self.LAND_COVER_MAP.get(lc_code, "unknown")
-
+        """
+        Normalize land cover properties to common schema.
+        
+        Uses LandCoverStandardizer for comprehensive field mapping,
+        code translation, and value normalization.
+        """
+        # Use LandCoverStandardizer for comprehensive field normalization
+        standardized = LandCoverStandardizer.standardize_properties(
+            properties, provider=self.provider
+        )
+        
+        # Ensure required fields are present with defaults
         return {
-            "lc_code": lc_code,
-            "lc_class": lc_class,
-            "lc_name": properties.get("lc_class", lc_class),
-            "confidence": float(properties.get("confidence", 0.5)),
-            "year": int(properties.get("year", 2020)),
+            "lc_code": standardized.get("lc_code", ""),
+            "lc_class": standardized.get("lc_class", "unknown"),
+            "lc_name": standardized.get("lc_name", ""),
+            "confidence": standardized.get("confidence", 0.5),
+            "confidence_percent": standardized.get("confidence_percent"),
+            "source": standardized.get("source", "unknown"),
+            "version": standardized.get("version"),
+            "epoch": standardized.get("epoch"),
+            "percent_water": standardized.get("percent_water"),
+            "percent_tree": standardized.get("percent_tree"),
+            "percent_grass": standardized.get("percent_grass"),
+            "percent_crops": standardized.get("percent_crops"),
+            "percent_built": standardized.get("percent_built"),
+            "percent_bare": standardized.get("percent_bare"),
+            "resolution_m": standardized.get("resolution_m"),
+            "valid": standardized.get("valid"),
         }
 
 
@@ -328,18 +371,54 @@ class WaterNormalizer(CategoryNormalizer):
 
 
 class ElevationNormalizer(CategoryNormalizer):
-    """Normalizes elevation data properties."""
+    """
+    Normalizes elevation data properties.
+    
+    Uses ElevationStandardizer to handle provider-specific elevation formats.
+    Supports USGS DEM, GEBCO ocean bathymetry, and other elevation data providers.
+    """
 
     def normalize_properties(self, properties: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize elevation properties to common schema."""
-        try:
-            elevation = float(properties.get("elevation_m", 0))
-        except (ValueError, TypeError):
-            elevation = 0.0
-
+        """
+        Normalize elevation properties to common schema.
+        
+        Uses ElevationStandardizer for comprehensive field mapping,
+        category assignment, and value normalization.
+        """
+        # Use ElevationStandardizer for comprehensive field normalization
+        standardized = ElevationStandardizer.standardize_properties(
+            properties, provider="usgs"
+        )
+        
+        # Ensure required fields are present with defaults
         return {
-            "elevation_m": elevation,
-            "confidence": float(properties.get("confidence", 0.8)),
-            "source": properties.get("source", "unknown"),
-            "method": properties.get("method", "dem"),
+            "elevation_m": standardized.get("elevation_m"),
+            "elevation_ft": standardized.get("elevation_ft"),
+            "min_elevation_m": standardized.get("min_elevation_m"),
+            "max_elevation_m": standardized.get("max_elevation_m"),
+            "mean_elevation_m": standardized.get("mean_elevation_m"),
+            "elevation_std_m": standardized.get("elevation_std_m"),
+            "elevation_category": standardized.get("elevation_category"),
+            "elevation_range_m": standardized.get("elevation_range_m"),
+            "slope_degrees": standardized.get("slope_degrees"),
+            "slope_percent": standardized.get("slope_percent"),
+            "slope_category": standardized.get("slope_category"),
+            "aspect_degrees": standardized.get("aspect_degrees"),
+            "terrain_type": standardized.get("terrain_type"),
+            "roughness": standardized.get("roughness"),
+            "ruggedness": standardized.get("ruggedness"),
+            "source": standardized.get("source", "unknown"),
+            "resolution_m": standardized.get("resolution_m"),
+            "accuracy_m": standardized.get("accuracy_m"),
+            "coverage_percent": standardized.get("coverage_percent"),
+            "nodata_percent": standardized.get("nodata_percent"),
+            "depth_m": standardized.get("depth_m"),
+            "min_depth_m": standardized.get("min_depth_m"),
+            "max_depth_m": standardized.get("max_depth_m"),
+            "mean_depth_m": standardized.get("mean_depth_m"),
+            "version": standardized.get("version"),
+            "timestamp": standardized.get("timestamp"),
+            "datum": standardized.get("datum"),
+            "vertical_datum": standardized.get("vertical_datum"),
+            "suggested_vertical_exaggeration": standardized.get("suggested_vertical_exaggeration"),
         }

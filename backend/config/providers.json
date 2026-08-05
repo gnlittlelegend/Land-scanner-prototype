@@ -1,50 +1,72 @@
 [
   {
-    "name": "osm_buildings",
+    "id": "osm_buildings",
+    "name": "OSM Buildings",
     "enabled": true,
     "category": "buildings",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
+    "rate_limit_delay_ms": 2000,
+    "optional": false,
     "collector_class": "OSMBuildingsCollector"
   },
   {
-    "name": "admin_boundaries",
+    "id": "admin_boundaries",
+    "name": "Admin Boundaries",
     "enabled": true,
     "category": "admin",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
+    "rate_limit_delay_ms": 2000,
+    "optional": false,
     "collector_class": "AdminBoundariesCollector"
   },
   {
-    "name": "land_cover",
+    "id": "land_cover",
+    "name": "Copernicus Land Cover",
     "enabled": true,
     "category": "land_cover",
-    "timeout_seconds": 60,
+    "api_endpoint": "https://stac.worldcereal.org/api/v1/collections",
+    "timeout_seconds": 45,
     "retry_count": 2,
+    "optional": true,
     "collector_class": "LandCoverCollector"
   },
   {
-    "name": "osm_roads",
+    "id": "roads",
+    "name": "OSM Roads",
     "enabled": true,
     "category": "roads",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
-    "collector_class": "OSMRoadsCollector"
+    "rate_limit_delay_ms": 2000,
+    "optional": false,
+    "collector_class": "RoadNetworkCollector"
   },
   {
-    "name": "osm_water",
+    "id": "water",
+    "name": "OSM Water",
     "enabled": true,
     "category": "water",
+    "api_endpoint": "http://overpass-api.de/api/interpreter",
     "timeout_seconds": 30,
     "retry_count": 2,
-    "collector_class": "OSMWaterCollector"
+    "rate_limit_delay_ms": 2000,
+    "optional": false,
+    "collector_class": "WaterBodiesCollector"
   },
   {
-    "name": "elevation",
+    "id": "elevation",
+    "name": "USGS Elevation",
     "enabled": true,
     "category": "elevation",
-    "timeout_seconds": 60,
+    "api_endpoint": "https://epqs.nationalmap.gov/v1/json",
+    "timeout_seconds": 45,
     "retry_count": 2,
+    "optional": false,
     "collector_class": "ElevationCollector"
   }
 ]

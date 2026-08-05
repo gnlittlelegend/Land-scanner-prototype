@@ -1,533 +1,649 @@
-"""
-Land Scanner Prototype - Main FastAPI Application
+"""FastAPI application for Land Scanner"""
 
-A geospatial data analysis platform that collects information from multiple
-open geospatial data sources and transforms it into useful land intelligence
-using rule-based processing.
-"""
-
+import logging
+import time
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from typing import Dict, Any, List
-import os
-import time
-import logging
 from datetime import datetime
+import uuid
+import traceback
 
-from backend.models import (
-    AnalysisResponse, 
-    ValidationError, 
-    ProcessingStatus, 
-    Polygon as PolygonModel,
-    ErrorInfo,
-    ModuleStatus,
-    DataCategory,
-    AnalysisRequest
-)
-from backend.models.schemas import RuleResult, StandardizedDataset
-from backend.services import ConfigManager
-from backend.validators.polygon_validator import PolygonValidator, PolygonValidationError
-from backend.validators.data_validator import DataValidator
+from backend.config import ConfigManager
+from backend.data_models import AnalysisResponse, ProcessingStatus, LandInformation, ProviderStatus
+from backend.validators.polygon_validator import PolygonValidator, ValidationError
 from backend.managers.data_source_manager import DataSourceManager
-from backend.standardizers.standardizer import Standardizer
+from backend.collectors.osm_buildings_collector import OSMBuildingsCollector
+from backend.collectors.admin_boundaries_collector import AdminBoundariesCollector
+from backend.collectors.road_network_collector import RoadNetworkCollector
+from backend.collectors.water_bodies_collector import WaterBodiesCollector
+from backend.collectors.elevation_collector import ElevationCollector
+from backend.collectors.land_cover_collector import LandCoverCollector
+from backend.standardizers.data_standardizer import DataStandardizer, StandardizationError
 from backend.rules.rule_engine import RuleEngine
+from backend.rules.admin_rule import AdminBoundaryRule
+from backend.rules.building_rule import BuildingPresenceRule
+from backend.rules.land_cover_rule import LandCoverRule
+from backend.rules.road_rule import RoadNetworkRule
+from backend.rules.water_rule import WaterFeaturesRule
+from backend.rules.elevation_rule import ElevationRule
+from backend.output.output_generator import OutputGenerator
 from backend.exceptions.error_handler import (
-    SafeError,
-    ErrorCode,
-    ErrorSeverity,
-    sanitize_error_message,
-    create_error_response,
-    http_status_for_error,
-    log_error
-)
-from backend.exceptions.response_formatter import (
-    format_error_response,
-    format_success_response,
-    format_validation_error_response,
-    format_processing_status
+    ErrorMessageSanitizer, ErrorCode, ErrorSeverity, SafeError, log_error
 )
 
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-config = ConfigManager()
-
+# Initialize application
 app = FastAPI(
-    title="Land Scanner Prototype",
-    description="A geospatial data analysis platform",
-    version=config.get_app_version()
+    title="Land Scanner",
+    description="Geospatial data analysis platform",
+    version="1.0.0"
 )
 
+# Initialize configuration
+config_manager = ConfigManager()
+
+# Track application startup time for uptime calculation
+app_start_time = time.time()
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://land-scanner-tamil-developers.web.app",
-        "http://localhost:3000",
-        "http://localhost:5173"
-    ],
+    allow_origins=["*"],  # In production, specify allowed origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# Error handling middleware
 @app.middleware("http")
-async def error_handler_middleware(request: Request, call_next):
+async def error_handling_middleware(request: Request, call_next):
     """
-    Global error handling middleware that wraps all requests.
+    Comprehensive error handling middleware (Requirement 9.1).
     
-    Catches exceptions at the application level and returns
-    safe error responses without exposing implementation details.
+    Handles:
+    - Validation errors (HTTP 400/422)
+    - Real provider failures (HTTP 500 with safe message)
+    - Unexpected exceptions (HTTP 500 with generic message)
+    
+    Ensures:
+    - No stack traces exposed to user
+    - Full error details logged to server logs
+    - Consistent error response format
     """
-    request_id = f"req_{int(time.time() * 1000)}"
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
     
     try:
-        start_time = time.time()
+        logger.info(f"[{request_id}] {request.method} {request.url.path}")
         response = await call_next(request)
         process_time = time.time() - start_time
-        response.headers["X-Process-Time"] = str(process_time)
-        response.headers["X-Request-ID"] = request_id
+        logger.info(f"[{request_id}] Response: {response.status_code} ({process_time:.2f}s)")
         return response
-    except HTTPException as http_exc:
-        logger.warning(f"[{request_id}] HTTP exception: {http_exc.status_code} - {http_exc.detail}")
-        return JSONResponse(
-            status_code=http_exc.status_code,
-            content=http_exc.detail if isinstance(http_exc.detail, dict) else {
+        
+    except HTTPException as e:
+        # HTTPException from endpoints - pass through but sanitize if needed
+        process_time = time.time() - start_time
+        
+        # Extract detail if it's a dict (our custom error response)
+        if isinstance(e.detail, dict):
+            error_detail = e.detail
+            error_detail["processing_time_ms"] = int(process_time * 1000)
+            if "request_id" not in error_detail:
+                error_detail["request_id"] = request_id
+            response_content = error_detail
+        else:
+            # Standard HTTPException with string detail
+            response_content = {
                 "status": "error",
-                "error_code": "HTTP_ERROR",
-                "error_message": str(http_exc.detail),
-                "request_id": request_id
+                "error_code": "VALIDATION_ERROR",
+                "error_message": str(e.detail),
+                "timestamp": datetime.utcnow().isoformat(),
+                "request_id": request_id,
+                "processing_time_ms": int(process_time * 1000)
+            }
+        
+        logger.warning(f"[{request_id}] HTTP {e.status_code}: {e.detail}")
+        return JSONResponse(
+            status_code=e.status_code,
+            content=response_content
+        )
+    
+    except ValidationError as e:
+        # Polygon validation errors
+        process_time = time.time() - start_time
+        logger.warning(f"[{request_id}] Validation error: {str(e)}")
+        
+        # Sanitize validation error for user
+        sanitized_message = ErrorMessageSanitizer.sanitize_validation_error(str(e))
+        
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "error_code": "POLYGON_VALIDATION_ERROR",
+                "error_message": sanitized_message,
+                "timestamp": datetime.utcnow().isoformat(),
+                "request_id": request_id,
+                "processing_time_ms": int(process_time * 1000)
             }
         )
-    except PolygonValidationError as e:
-        logger.warning(f"[{request_id}] Polygon validation error: {str(e)}")
-        safe_error = SafeError(
-            error_code=ErrorCode.POLYGON_VALIDATION_ERROR,
-            user_message=str(e),
-            module="polygon_validator",
-            stage="validation",
-            severity=ErrorSeverity.ERROR
-        )
-        status_code = http_status_for_error(safe_error.error_code)
-        return JSONResponse(
-            status_code=status_code,
-            content=create_error_response(status_code, safe_error, request_id)
-        )
-    except ValueError as e:
-        logger.warning(f"[{request_id}] Validation error: {str(e)}")
-        safe_error = SafeError(
-            error_code=ErrorCode.VALIDATION_ERROR,
-            user_message=sanitize_error_message(str(e)),
-            module="validation",
-            severity=ErrorSeverity.ERROR
-        )
-        status_code = http_status_for_error(safe_error.error_code)
-        return JSONResponse(
-            status_code=status_code,
-            content=create_error_response(status_code, safe_error, request_id)
-        )
+    
     except Exception as e:
-        logger.error(f"[{request_id}] Unexpected exception: {type(e).__name__}", exc_info=True)
-        safe_error = SafeError(
-            error_code=ErrorCode.INTERNAL_ERROR,
-            user_message="An unexpected error occurred. Please try again later.",
-            module="system",
-            severity=ErrorSeverity.CRITICAL
+        # Unexpected system errors
+        process_time = time.time() - start_time
+        
+        # Log full error details including stack trace (internal only)
+        logger.error(
+            f"[{request_id}] Unexpected error: {str(e)}",
+            exc_info=True,
+            extra={
+                "exception_type": type(e).__name__,
+                "stack_trace": traceback.format_exc()
+            }
         )
-        status_code = http_status_for_error(safe_error.error_code)
+        
+        # Create safe error message for user (no implementation details)
+        safe_error_message = ErrorMessageSanitizer.sanitize_system_error(str(e))
+        
         return JSONResponse(
-            status_code=status_code,
-            content=create_error_response(status_code, safe_error, request_id)
+            status_code=500,
+            content={
+                "status": "error",
+                "error_code": "SYSTEM_ERROR",
+                "error_message": safe_error_message,
+                "timestamp": datetime.utcnow().isoformat(),
+                "request_id": request_id,
+                "processing_time_ms": int(process_time * 1000)
+            }
         )
+
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for service monitoring (Requirement 9.2)
+    
+    Returns:
+    - Service health status
+    - Application version
+    - Uptime information
+    - Basic configuration info (non-sensitive)
+    """
+    # Calculate uptime in seconds
+    uptime_seconds = int(time.time() - app_start_time)
+    uptime_minutes = uptime_seconds // 60
+    uptime_hours = uptime_minutes // 60
+    uptime_days = uptime_hours // 24
+    
+    # Format uptime string
+    if uptime_days > 0:
+        uptime_str = f"{uptime_days}d {uptime_hours % 24}h {uptime_minutes % 60}m"
+    elif uptime_hours > 0:
+        uptime_str = f"{uptime_hours}h {uptime_minutes % 60}m"
+    else:
+        uptime_str = f"{uptime_minutes}m {uptime_seconds % 60}s"
+    
+    # Get basic configuration info (non-sensitive)
+    enabled_providers = config_manager.get_enabled_providers()
+    provider_summary = [
+        {
+            "id": p["id"],
+            "name": p["name"],
+            "category": p["category"],
+            "optional": p.get("optional", False)
+        }
+        for p in enabled_providers
+    ]
+    
+    logger.info("Health check requested")
+    return {
+        "status": "healthy",
+        "app_name": config_manager.get_app_name(),
+        "version": config_manager.get_app_version(),
+        "environment": config_manager.get_environment(),
+        "uptime_seconds": uptime_seconds,
+        "uptime_formatted": uptime_str,
+        "timestamp": datetime.utcnow().isoformat(),
+        "configuration": {
+            "total_providers": len(enabled_providers),
+            "enabled_providers": len(enabled_providers),
+            "providers": provider_summary
+        }
+    }
+
+
+@app.get("/status")
+async def system_status():
+    """
+    System status and configuration information endpoint (Requirement 9.3)
+    
+    Returns:
+    - Prototype version and environment info
+    - List of enabled data providers
+    - List of available rules
+    - Configuration summary (timeouts, retries, rate limits)
+    """
+    logger.info("Status check requested")
+    
+    # Get provider information
+    enabled_providers = config_manager.get_enabled_providers()
+    all_providers = config_manager.get_providers()
+    
+    # Define available rules
+    available_rules = [
+        {
+            "id": "ADM-001",
+            "name": "Administrative Boundaries",
+            "description": "Identifies country, state, and district from polygon location",
+            "required_data": ["admin"],
+            "status": "available"
+        },
+        {
+            "id": "LC-001",
+            "name": "Land Cover Summary",
+            "description": "Summarizes dominant land cover types and coverage percentages",
+            "required_data": ["land_cover"],
+            "status": "available"
+        },
+        {
+            "id": "BLD-001",
+            "name": "Building Presence",
+            "description": "Detects presence of buildings and provides statistics",
+            "required_data": ["buildings"],
+            "status": "available"
+        },
+        {
+            "id": "RD-001",
+            "name": "Road Network",
+            "description": "Identifies road access and categorizes road types",
+            "required_data": ["roads"],
+            "status": "available"
+        },
+        {
+            "id": "WT-001",
+            "name": "Water Features",
+            "description": "Identifies water features and estimates water coverage",
+            "required_data": ["water"],
+            "status": "available"
+        },
+        {
+            "id": "ELV-001",
+            "name": "Elevation Analysis",
+            "description": "Calculates elevation statistics and terrain characteristics",
+            "required_data": ["elevation"],
+            "status": "available"
+        }
+    ]
+    
+    # Build configuration summary
+    configuration_summary = {
+        "providers_enabled": len(enabled_providers),
+        "providers_total": len(all_providers),
+        "rules_available": len(available_rules),
+        "default_timeout_seconds": 30,
+        "max_polygon_vertices": 10000,
+        "polygon_area_min_sqm": 10,
+        "polygon_area_max_sqkm": 100,
+        "rate_limiting": {
+            "default_delay_ms": 2000,
+            "description": "Delay between provider requests to respect rate limits"
+        }
+    }
+    
+    # Build provider details with configuration
+    provider_details = []
+    for p in enabled_providers:
+        provider_details.append({
+            "id": p["id"],
+            "name": p["name"],
+            "category": p["category"],
+            "optional": p.get("optional", False),
+            "timeout_seconds": p.get("timeout_seconds", 30),
+            "retry_count": p.get("retry_count", 2),
+            "api_endpoint": p.get("api_endpoint", "")
+        })
+    
+    return {
+        "app_name": config_manager.get_app_name(),
+        "version": config_manager.get_app_version(),
+        "environment": config_manager.get_environment(),
+        "timestamp": datetime.utcnow().isoformat(),
+        "system_status": "operational",
+        "enabled_providers": provider_details,
+        "available_rules": available_rules,
+        "configuration_summary": configuration_summary
+    }
 
 
 @app.post("/analyze")
-async def analyze_polygon(body: AnalysisRequest) -> AnalysisResponse:
+async def analyze_polygon(data: dict):
     """
-    Analyze a geographic polygon.
+    Analyze a polygon by collecting, standardizing, and processing data from multiple providers
+    (Requirement 9.1, 9.4, 9.5, and Task 10.1 integration)
     
-    Accepts a GeoJSON polygon, validates it, collects data from multiple
-    open data providers, standardizes the data, processes it through the
-    Rule Engine, and returns structured land information.
+    Full pipeline:
+    1. Validate polygon geometry and constraints
+    2. Collect data from multiple providers (real APIs)
+    3. Standardize all provider data to common format
+    4. Execute rule engine on standardized data
+    5. Generate structured output response
     
-    Pipeline stages:
-    1. Polygon validation
-    2. Data collection (from all enabled providers)
-    3. Data validation (verify collected data structure)
-    4. Data standardization (convert to common format - WGS84)
-    5. Rule Engine processing (apply analysis rules)
-    6. Output generation (compile results)
-    
-    Args:
-        body: AnalysisRequest with validated GeoJSON polygon
-        
-    Returns:
-        AnalysisResponse with analysis results or error information
-    """
-    request = {"polygon": body.polygon}
-    start_time = time.time()
-    request_id = f"req_{int(time.time() * 1000)}"
-    
-    logger.info(f"Received analysis request: {request_id}")
-    
-    module_statuses = {
-        "validation": ProcessingStatus.FAILED,
-        "data_collection": ProcessingStatus.FAILED,
-        "data_validation": ProcessingStatus.FAILED,
-        "standardization": ProcessingStatus.FAILED,
-        "rule_engine": ProcessingStatus.FAILED,
-        "output_generation": ProcessingStatus.FAILED
+    Request body:
+    {
+        "polygon": {GeoJSON polygon}
     }
     
-    errors: List[ErrorInfo] = []
-    provider_statuses = {}
-    land_information: Dict[str, RuleResult] = {}
-    analysis_summary: Dict[str, Any] = {}
+    Returns:
+    {
+        "request_id": "uuid",
+        "status": "success|partial|error",
+        "timestamp": "ISO8601",
+        "processing_time_ms": integer,
+        "analysis_summary": {...},
+        "land_information": {...},
+        "processing_status": {...},
+        "provider_status": {...},
+        "errors": [...]
+    }
+    """
+    request_id = str(uuid.uuid4())
+    logger.info(f"[{request_id}] Analysis request received")
+    
+    start_time = time.time()
+    errors = []
+    processing_status_dict = {}
     
     try:
-        logger.info(f"[{request_id}] STAGE 1: Validating polygon...")
-        
-        if not request or "polygon" not in request:
-            logger.warning(f"Request {request_id} missing polygon field")
-            error_response = format_validation_error_response(
-                "Request must include 'polygon' field with valid GeoJSON",
-                request_id
+        # Validate request structure
+        if not data or "polygon" not in data:
+            logger.warning(f"[{request_id}] Missing polygon in request")
+            error_msg = "Request must include 'polygon' field with GeoJSON polygon"
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "status": "error",
+                    "error_code": "VALIDATION_ERROR",
+                    "error_message": error_msg,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "request_id": request_id
+                }
             )
-            raise HTTPException(status_code=422, detail=error_response)
         
-        polygon_data = request.get("polygon")
+        polygon_geojson = data["polygon"]
+        
+        # ========== STEP 1: Validate polygon geometry (Requirements 1.1-1.6) ==========
+        try:
+            logger.info(f"[{request_id}] Step 1: Validating polygon geometry")
+            validator = PolygonValidator()
+            polygon_metadata = validator.validate(polygon_geojson)
+            logger.info(f"[{request_id}] ✓ Polygon validation successful: {polygon_metadata.area_sqkm:.2f} km²")
+            processing_status_dict["validation"] = "success"
+            
+        except ValidationError as e:
+            # Polygon validation failed - return error immediately
+            logger.warning(f"[{request_id}] ✗ Polygon validation failed: {str(e)}")
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "status": "error",
+                    "error_code": "POLYGON_VALIDATION_ERROR",
+                    "error_message": str(e),
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "request_id": request_id,
+                    "processing_time_ms": processing_time_ms
+                }
+            )
+        
+        # ========== STEP 2: Collect data from multiple providers (Requirements 2.1-2.7) ==========
+        logger.info(f"[{request_id}] Step 2: Starting data collection from {len(config_manager.get_enabled_providers())} providers")
+        
+        raw_collection = None
+        provider_status = {}
         
         try:
-            validated_polygon = PolygonValidator.validate(polygon_data)
-            logger.info(
-                f"[{request_id}] Polygon validated: "
-                f"area={validated_polygon.area_sqkm:.2f} sq km"
-            )
-            module_statuses["validation"] = ProcessingStatus.SUCCESS
-            analysis_summary["polygon_area_sqkm"] = validated_polygon.area_sqkm
-            analysis_summary["bounding_box"] = validated_polygon.bounding_box
-            analysis_summary["analysis_date"] = datetime.utcnow().isoformat()
-            
-        except PolygonValidationError as e:
-            logger.warning(f"Polygon validation failed for request {request_id}: {str(e)}")
-            error_response = format_validation_error_response(str(e), request_id)
-            raise HTTPException(status_code=400, detail=error_response)
-        
-        logger.info(f"[{request_id}] STAGE 2: Collecting data from providers...")
-        
-        try:
-            data_source_manager = DataSourceManager(config)
-            collected_datasets, provider_statuses = await data_source_manager.collect_async(validated_polygon)
-            collection_status = ProcessingStatus.SUCCESS if collected_datasets else ProcessingStatus.FAILED
-            
-            module_statuses["data_collection"] = collection_status
-            
-            logger.info(
-                f"[{request_id}] Data collection complete: "
-                f"{len(collected_datasets)} datasets collected"
-            )
-            
-            if not collected_datasets:
-                logger.warning(f"[{request_id}] No data collected from any provider")
-                errors.append(ErrorInfo(
-                    module="data_collection",
-                    message="No data collected from available providers",
-                    severity="error"
-                ))
-                module_statuses["data_collection"] = ProcessingStatus.FAILED
-                
-        except Exception as e:
-            logger.error(
-                f"[{request_id}] Data collection failed: {str(e)}",
-                exc_info=True
-            )
-            module_statuses["data_collection"] = ProcessingStatus.FAILED
-            errors.append(ErrorInfo(
-                module="data_collection",
-                message=f"Data collection error: {sanitize_error_message(str(e))}",
-                severity="error"
-            ))
-            collected_datasets = []
-        
-        logger.info(f"[{request_id}] STAGE 3: Validating collected data...")
-        
-        try:
-            if collected_datasets:
-                validation_results = DataValidator.validate_collection(collected_datasets)
-                validation_summary = DataValidator.get_validation_summary(validation_results)
-                data_validation_status = validation_summary.get("overall_status", ProcessingStatus.FAILED)
-                module_statuses["data_validation"] = ProcessingStatus.SUCCESS
-                
-                logger.info(
-                    f"[{request_id}] Data validation complete: "
-                    f"{validation_summary.get('successful_datasets', 0)} successful, "
-                    f"{validation_summary.get('failed_datasets', 0)} failed"
-                )
-                
-                if validation_summary.get("failed_datasets", 0) > 0:
-                    errors.append(ErrorInfo(
-                        module="data_validation",
-                        message=f"Some datasets failed validation ({validation_summary.get('failed_datasets', 0)})",
-                        severity="warning"
-                    ))
-            else:
-                module_statuses["data_validation"] = ProcessingStatus.SKIPPED
-                logger.info(f"[{request_id}] Data validation skipped (no datasets)")
-                
-        except Exception as e:
-            logger.error(
-                f"[{request_id}] Data validation error: {str(e)}",
-                exc_info=True
-            )
-            module_statuses["data_validation"] = ProcessingStatus.FAILED
-            errors.append(ErrorInfo(
-                module="data_validation",
-                message=f"Validation error: {sanitize_error_message(str(e))}",
-                severity="error"
-            ))
-        
-        logger.info(f"[{request_id}] STAGE 4: Standardizing data to common format...")
-        
-        try:
-            standardizer = Standardizer()
-            standardized_datasets: Dict[DataCategory, StandardizedDataset] = {}
-            
-            for raw_dataset in collected_datasets:
-                try:
-                    standardized = standardizer.standardize(raw_dataset)
-                    standardized_datasets[standardized.category] = standardized
-                    logger.debug(
-                        f"[{request_id}] Standardized {raw_dataset.source_provider} "
-                        f"({raw_dataset.category}): {len(standardized.features)} features"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"[{request_id}] Failed to standardize {raw_dataset.source_provider}: {str(e)}"
-                    )
-                    errors.append(ErrorInfo(
-                        module="standardization",
-                        message=f"Failed to standardize {raw_dataset.source_provider}",
-                        severity="warning"
-                    ))
-            
-            if standardized_datasets:
-                module_statuses["standardization"] = ProcessingStatus.SUCCESS
-                logger.info(
-                    f"[{request_id}] Standardization complete: "
-                    f"{len(standardized_datasets)} datasets standardized"
-                )
-            else:
-                module_statuses["standardization"] = ProcessingStatus.FAILED
-                logger.warning(f"[{request_id}] No datasets standardized")
-                
-        except Exception as e:
-            logger.error(
-                f"[{request_id}] Standardization error: {str(e)}",
-                exc_info=True
-            )
-            module_statuses["standardization"] = ProcessingStatus.FAILED
-            errors.append(ErrorInfo(
-                module="standardization",
-                message=f"Standardization error: {sanitize_error_message(str(e))}",
-                severity="error"
-            ))
-            standardized_datasets = {}
-        
-        logger.info(f"[{request_id}] STAGE 5: Processing with Rule Engine...")
-        
-        try:
-            if standardized_datasets:
-                rule_engine = RuleEngine(config={"request_id": request_id})
-                
-                rule_results = rule_engine.execute(standardized_datasets)
-                
-                for rule_id, rule_result in rule_results.items():
-                    land_information[rule_id] = rule_result
-                
-                engine_status = rule_engine.get_overall_status(rule_results)
-                module_statuses["rule_engine"] = engine_status
-                
-                logger.info(
-                    f"[{request_id}] Rule Engine complete: "
-                    f"{len(rule_results)} rules executed"
-                )
-            else:
-                module_statuses["rule_engine"] = ProcessingStatus.SKIPPED
-                logger.info(f"[{request_id}] Rule Engine skipped (no standardized data)")
-                
-        except Exception as e:
-            logger.error(
-                f"[{request_id}] Rule Engine error: {str(e)}",
-                exc_info=True
-            )
-            module_statuses["rule_engine"] = ProcessingStatus.FAILED
-            errors.append(ErrorInfo(
-                module="rule_engine",
-                message=f"Rule Engine error: {sanitize_error_message(str(e))}",
-                severity="error"
-            ))
-        
-        logger.info(f"[{request_id}] STAGE 6: Generating output...")
-        
-        try:
-            if module_statuses["validation"] == ProcessingStatus.SUCCESS:
-                if module_statuses["data_collection"] == ProcessingStatus.SUCCESS:
-                    overall_status = ProcessingStatus.SUCCESS
-                else:
-                    overall_status = ProcessingStatus.PARTIAL
-            else:
-                overall_status = ProcessingStatus.FAILED
-            
-            if not analysis_summary.get("key_findings"):
-                analysis_summary["key_findings"] = []
-                if land_information:
-                    for rule_id, rule_result in land_information.items():
-                        if rule_result.status == ProcessingStatus.SUCCESS:
-                            analysis_summary["key_findings"].append(rule_result.rule_name)
-            
-            processing_time_ms = (time.time() - start_time) * 1000
-            
-            processing_status_list = {
-                name: ModuleStatus(
-                    module_name=name,
-                    status=status
-                )
-                for name, status in module_statuses.items()
+            # Prepare collectors - IDs must match config/providers.json keys
+            collectors = {
+                "osm_buildings": OSMBuildingsCollector(timeout=30),
+                "osm_admin_boundaries": AdminBoundariesCollector(timeout=30),
+                "osm_roads": RoadNetworkCollector(timeout=30),
+                "osm_water": WaterBodiesCollector(timeout=30),
+                "usgs_elevation": ElevationCollector(timeout=45),
+                "copernicus_land_cover": LandCoverCollector(timeout=45),
             }
             
-            provider_status_list = [
-                {
-                    "provider_name": provider_name,
-                    "status": status_info.get("status", "unknown"),
-                    "data_retrieved": status_info.get("data_retrieved", False),
-                    "error_message": status_info.get("error_message")
-                }
-                for provider_name, status_info in provider_statuses.items()
-            ]
+            # Create data source manager
+            manager = DataSourceManager(config_manager, collectors, rate_limit_delay=2)
             
+            # Collect data from all enabled providers
+            raw_collection = manager.collect_data(polygon_metadata)
+            logger.info(f"[{request_id}] ✓ Data collection completed")
+            logger.info(f"[{request_id}] Providers: {raw_collection.successful_providers}/{raw_collection.total_providers} successful")
+            
+            # Build provider status summary
+            for provider_name, status in raw_collection.provider_status.items():
+                provider_status[provider_name] = {
+                    "available": status.get("success", False),
+                    "records": status.get("record_count", 0),
+                    "error": status.get("error_message", None) if not status.get("success", False) else None
+                }
+            
+            data_collection_status = "partial" if raw_collection.failed_providers > 0 else "success"
+            processing_status_dict["data_collection"] = data_collection_status
+            
+        except Exception as e:
+            # Provider error - sanitize for user display (Requirement 8.2)
+            logger.error(f"[{request_id}] ✗ Data collection failed: {str(e)}", exc_info=True)
+            
+            # Create safe error message without implementation details
+            safe_message = ErrorMessageSanitizer.sanitize_system_error(str(e))
+            errors.append(safe_message)
+            
+            processing_status_dict["data_collection"] = "error"
+            provider_status = {}
+            raw_collection = None
+        
+        # ========== STEP 3: Standardize collected data (Requirements 4.1-4.6) ==========
+        standardized_datasets = {}
+        
+        if raw_collection and raw_collection.collections:
+            try:
+                logger.info(f"[{request_id}] Step 3: Standardizing collected data")
+                standardizer = DataStandardizer()
+                
+                # Standardize each collected dataset
+                for category, dataset in raw_collection.collections.items():
+                    try:
+                        standardized = standardizer.standardize(dataset)
+                        standardized_datasets[category] = standardized
+                        logger.debug(f"[{request_id}] Standardized {category}: {len(standardized.features)} features")
+                    except StandardizationError as e:
+                        logger.warning(f"[{request_id}] Failed to standardize {category}: {str(e)}")
+                        errors.append(f"Standardization error for {category}: {str(e)}")
+                        continue
+                
+                logger.info(f"[{request_id}] ✓ Standardization completed: {len(standardized_datasets)} datasets")
+                processing_status_dict["standardization"] = "success" if standardized_datasets else "partial"
+                
+            except Exception as e:
+                logger.error(f"[{request_id}] ✗ Standardization failed: {str(e)}", exc_info=True)
+                safe_message = ErrorMessageSanitizer.sanitize_system_error(str(e))
+                errors.append(safe_message)
+                processing_status_dict["standardization"] = "error"
+        else:
+            logger.warning(f"[{request_id}] No data to standardize (collection failed)")
+            processing_status_dict["standardization"] = "skipped"
+        
+        # ========== STEP 4: Execute rule engine on standardized data (Requirements 5.1-5.11) ==========
+        rule_results = {}
+        
+        if standardized_datasets:
+            try:
+                logger.info(f"[{request_id}] Step 4: Executing rule engine on {len(standardized_datasets)} datasets")
+                
+                # Initialize rule engine
+                rule_engine = RuleEngine()
+                
+                # Register all rules
+                rule_engine.register_rules([
+                    AdminBoundaryRule(),      # ADM-001
+                    LandCoverRule(),          # LC-001
+                    BuildingPresenceRule(),   # BLD-001
+                    RoadNetworkRule(),        # RD-001
+                    WaterFeaturesRule(),      # WT-001
+                    ElevationRule()           # ELV-001
+                ])
+                
+                # Execute all rules on standardized data
+                rule_results = rule_engine.execute(standardized_datasets)
+                logger.info(f"[{request_id}] ✓ Rule engine completed: {len(rule_results)} rules executed")
+                
+                # Count results by status
+                success_count = sum(1 for r in rule_results.values() if r.status == "success")
+                insufficient_count = sum(1 for r in rule_results.values() if r.status == "insufficient_data")
+                failed_count = sum(1 for r in rule_results.values() if r.status == "failed")
+                
+                logger.info(f"[{request_id}] Rule results: {success_count} success, {insufficient_count} insufficient_data, {failed_count} failed")
+                
+                # Determine rule engine status
+                if success_count == len(rule_results):
+                    rule_engine_status = "success"
+                elif success_count > 0:
+                    rule_engine_status = "partial"
+                else:
+                    rule_engine_status = "insufficient_data" if insufficient_count > 0 else "error"
+                
+                processing_status_dict["rule_engine"] = rule_engine_status
+                
+            except Exception as e:
+                logger.error(f"[{request_id}] ✗ Rule engine execution failed: {str(e)}", exc_info=True)
+                safe_message = ErrorMessageSanitizer.sanitize_system_error(str(e))
+                errors.append(safe_message)
+                processing_status_dict["rule_engine"] = "error"
+        else:
+            logger.warning(f"[{request_id}] Skipping rule engine (no standardized data)")
+            processing_status_dict["rule_engine"] = "skipped"
+        
+        # ========== STEP 5: Generate output response (Requirements 6.1-6.8) ==========
+        try:
+            logger.info(f"[{request_id}] Step 5: Generating output response")
+            
+            output_generator = OutputGenerator()
+            
+            # Build polygon info for output
+            polygon_info = {
+                "area_sqkm": polygon_metadata.area_sqkm,
+                "bounding_box": polygon_metadata.bounding_box,
+                "centroid": polygon_metadata.centroid,
+                "vertices": polygon_metadata.num_vertices
+            }
+            
+            # Convert processing_status_dict to ProcessingStatus model
+            processing_status_model = ProcessingStatus(
+                validation=processing_status_dict.get("validation", "pending"),
+                data_collection=processing_status_dict.get("data_collection", "pending"),
+                standardization=processing_status_dict.get("standardization", "pending"),
+                rule_engine=processing_status_dict.get("rule_engine", "pending"),
+                output_generation="in_progress"
+            )
+            
+            # Generate complete response
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Determine overall status
+            validation_ok = processing_status_dict.get("validation") == "success"
+            collection_ok = processing_status_dict.get("data_collection") in ["success", "partial"]
+            
+            if validation_ok and collection_ok and rule_results:
+                # Check if we have any successful rules
+                success_rules = sum(1 for r in rule_results.values() if r.status == "success")
+                if success_rules > 0:
+                    overall_status = "success"
+                else:
+                    overall_status = "partial"
+            elif validation_ok and collection_ok:
+                overall_status = "partial"
+            else:
+                overall_status = "error"
+            
+            # Build land_information from rule results
+            land_information = LandInformation()
+            for rule_id, rule_result in rule_results.items():
+                if hasattr(rule_result, 'output'):
+                    # Map rule IDs to land_information fields
+                    if rule_id == "ADM-001":
+                        land_information.administrative = rule_result.output
+                    elif rule_id == "LC-001":
+                        land_information.land_cover = rule_result.output
+                    elif rule_id == "BLD-001":
+                        land_information.buildings = rule_result.output
+                    elif rule_id == "RD-001":
+                        land_information.roads = rule_result.output
+                    elif rule_id == "WT-001":
+                        land_information.water = rule_result.output
+                    elif rule_id == "ELV-001":
+                        land_information.elevation = rule_result.output
+            
+            # Create final response
             response = AnalysisResponse(
                 request_id=request_id,
                 status=overall_status,
                 timestamp=datetime.utcnow(),
                 processing_time_ms=processing_time_ms,
-                analysis_summary=analysis_summary,
                 land_information=land_information,
-                processing_status=processing_status_list,
-                provider_status=provider_status_list,
+                processing_status=processing_status_model,
+                provider_status=provider_status,
                 errors=errors
             )
             
-            module_statuses["output_generation"] = ProcessingStatus.SUCCESS
+            processing_status_model.output_generation = "success"
             
-            logger.info(
-                f"[{request_id}] Analysis complete: "
-                f"status={overall_status.value}, "
-                f"time={processing_time_ms:.2f}ms"
-            )
-            
-            return response
+            logger.info(f"[{request_id}] ✓ Analysis complete ({processing_time_ms}ms, status={overall_status})")
+            return response.model_dump()
             
         except Exception as e:
-            logger.error(
-                f"[{request_id}] Output generation error: {str(e)}",
-                exc_info=True
-            )
-            module_statuses["output_generation"] = ProcessingStatus.FAILED
-            errors.append(ErrorInfo(
-                module="output_generation",
-                message=f"Output generation error: {sanitize_error_message(str(e))}",
-                severity="error"
-            ))
+            logger.error(f"[{request_id}] ✗ Output generation failed: {str(e)}", exc_info=True)
+            safe_message = ErrorMessageSanitizer.sanitize_system_error(str(e))
+            errors.append(safe_message)
             
-            processing_time_ms = (time.time() - start_time) * 1000
+            # Return error response with what we have
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
             response = AnalysisResponse(
                 request_id=request_id,
-                status=ProcessingStatus.FAILED,
+                status="error",
                 timestamp=datetime.utcnow(),
                 processing_time_ms=processing_time_ms,
-                analysis_summary=analysis_summary,
-                land_information=land_information,
-                processing_status={
-                    name: ModuleStatus(module_name=name, status=status)
-                    for name, status in module_statuses.items()
-                },
-                provider_status=provider_status_list if provider_statuses else [],
+                processing_status=ProcessingStatus(
+                    validation=processing_status_dict.get("validation", "pending"),
+                    data_collection=processing_status_dict.get("data_collection", "pending"),
+                    standardization=processing_status_dict.get("standardization", "pending"),
+                    rule_engine=processing_status_dict.get("rule_engine", "pending"),
+                    output_generation="error"
+                ),
+                provider_status=provider_status,
                 errors=errors
             )
             
-            return response
-    
+            return response.model_dump()
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in analyze endpoint [{request_id}]: {str(e)}", exc_info=True)
-        processing_time_ms = (time.time() - start_time) * 1000
-        
-        error_response = AnalysisResponse(
-            request_id=request_id,
-            status=ProcessingStatus.FAILED,
-            timestamp=datetime.utcnow(),
-            processing_time_ms=processing_time_ms,
-            analysis_summary={},
-            land_information={},
-            processing_status={
-                "validation": ModuleStatus(module_name="validation", status=ProcessingStatus.FAILED),
-                "data_collection": ModuleStatus(module_name="data_collection", status=ProcessingStatus.FAILED),
-                "data_validation": ModuleStatus(module_name="data_validation", status=ProcessingStatus.FAILED),
-                "standardization": ModuleStatus(module_name="standardization", status=ProcessingStatus.FAILED),
-                "rule_engine": ModuleStatus(module_name="rule_engine", status=ProcessingStatus.FAILED),
-                "output_generation": ModuleStatus(module_name="output_generation", status=ProcessingStatus.FAILED),
-            },
-            errors=[ErrorInfo(
-                module="analyze_endpoint",
-                message="An unexpected error occurred during analysis",
-                severity="error"
-            )]
-        )
-        
-        return error_response
-
-
-@app.get("/health")
-async def health_check() -> Dict[str, Any]:
-    return {
-        "status": "healthy",
-        "service": config.get_app_name(),
-        "version": config.get_app_version(),
-        "timestamp": datetime.utcnow().isoformat()
-    }
-
-
-@app.get("/status")
-async def get_status() -> Dict[str, Any]:
-    enabled_providers = config.get_enabled_providers()
-    
-    return {
-        "prototype_name": config.get_app_name(),
-        "version": config.get_app_version(),
-        "timestamp": datetime.utcnow().isoformat(),
-        "enabled_providers": [p["name"] for p in enabled_providers],
-        "provider_count": len(enabled_providers),
-        "debug_mode": config.is_debug_mode()
-    }
+        # Unexpected error - let middleware handle it
+        logger.error(f"[{request_id}] ✗ Unexpected error: {str(e)}", exc_info=True)
+        raise
 
 
 if __name__ == "__main__":
     import uvicorn
-    
-    host = config.get_setting("api.host", "0.0.0.0")
-    port = config.get_setting("api.port", 8000)
-    debug = config.is_debug_mode()
-    
-    logger.info(f"Starting {config.get_app_name()} v{config.get_app_version()}")
-    logger.info(f"Server: {host}:{port}")
-    
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        reload=debug
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8000)
