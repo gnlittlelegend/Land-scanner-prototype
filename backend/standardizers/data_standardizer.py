@@ -6,7 +6,6 @@ Normalizes coordinate systems, field names, and data structure.
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-from pyproj import Transformer
 
 from backend.data_models import RawDataset, StandardizedDataset, Feature
 from backend.standardizers.landcover_standardizer import LandCoverStandardizer
@@ -26,16 +25,16 @@ class DataStandardizer:
     Standardizes raw data from various providers into a common internal format.
     
     Responsibilities:
-    - Convert coordinate systems to WGS84 (EPSG:4326)
     - Normalize field names across providers
     - Normalize data structure to common schema
     - Map provider-specific values to standardized categories
     - Preserve data integrity and source attribution
+    - Assumes all input data is in WGS84 (EPSG:4326)
     """
 
     def __init__(self):
         """Initialize the Data Standardizer."""
-        self.source_crs_cache: Dict[str, Transformer] = {}
+        pass
 
     def standardize(self, raw_dataset: RawDataset) -> StandardizedDataset:
         """

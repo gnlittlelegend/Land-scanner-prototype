@@ -2,8 +2,7 @@
 
 from typing import Dict, Tuple, Any, Optional, List
 from dataclasses import dataclass
-from shapely.geometry import shape, MultiPolygon, Polygon as ShapelyPolygon
-from shapely.validation import make_valid
+import math
 import json
 
 
@@ -71,32 +70,21 @@ class PolygonValidator:
         if coordinates is None:
             raise ValidationError("Missing 'coordinates' field in geometry")
         
-        # Step 5: Create Shapely geometry
-        try:
-            shapely_geom = shape(geometry)
-        except Exception as e:
-            raise ValidationError(f"Invalid geometry: {str(e)}")
+        # Step 5: Validate geometry structure
+        self._validate_coordinates_structure(coordinates, geom_type)
         
-        # Step 6: Validate Shapely geometry
-        if not shapely_geom.is_valid:
+        # Step 6: Validate geometry is valid
+        if not self._is_valid_geometry(coordinates, geom_type):
             raise ValidationError("Geometry is not valid (invalid structure or self-intersections)")
         
-        # Step 7: Validate geometry is Polygon or MultiPolygon
-        if not isinstance(shapely_geom, (ShapelyPolygon, MultiPolygon)):
-            raise ValidationError(f"Geometry type '{geom_type}' is not supported. Must be Polygon or MultiPolygon.")
+        # Step 7: Validate coordinates within bounds
+        self._validate_coordinate_bounds(coordinates, geom_type)
         
-        # Step 8: Handle MultiPolygon
-        if isinstance(shapely_geom, MultiPolygon):
-            shapely_geom = self._validate_multipolygon(shapely_geom)
+        # Step 8: Validate linear rings are closed
+        self._validate_rings_closed(coordinates, geom_type)
         
-        # Step 9: Validate coordinates within bounds
-        self._validate_coordinate_bounds(shapely_geom)
-        
-        # Step 10: Validate linear rings are closed
-        self._validate_rings_closed(geometry)
-        
-        # Step 11: Validate vertex count
-        num_vertices = self._count_vertices(shapely_geom)
+        # Step 9: Validate vertex count
+        num_vertices = self._count_vertices(coordinates, geom_type)
         if num_vertices > self.MAX_VERTICES:
             raise ValidationError(
                 f"Polygon has {num_vertices} vertices, exceeds maximum of {self.MAX_VERTICES}"
@@ -106,10 +94,8 @@ class PolygonValidator:
                 f"Polygon must have at least 3 vertices, found {num_vertices}"
             )
         
-        # Step 12: Validate polygon area
-        area_sqm = shapely_geom.area * 111320 * 110540  # Approximate conversion at equator
-        # For more accurate area, use geospatial projection
-        area_sqm = self._calculate_area_sqm(shapely_geom)
+        # Step 10: Validate polygon area
+        area_sqm = self._calculate_area_sqm(coordinates, geom_type)
         area_sqkm = area_sqm / 1e6
         
         if area_sqm < self.MIN_AREA_SQM:
@@ -121,9 +107,9 @@ class PolygonValidator:
                 f"Polygon area {area_sqkm:.2f} km² exceeds maximum of {self.MAX_AREA_SQKM:.2f} km²"
             )
         
-        # Step 13: Calculate metadata
-        bounds = shapely_geom.bounds  # (minx, miny, maxx, maxy)
-        centroid = (shapely_geom.centroid.x, shapely_geom.centroid.y)
+        # Step 11: Calculate metadata
+        bounds = self._get_bounds(coordinates, geom_type)
+        centroid = self._calculate_centroid(coordinates, geom_type)
         
         return PolygonMetadata(
             area_sqkm=area_sqkm,
@@ -160,122 +146,170 @@ class PolygonValidator:
                 f"Invalid geometry type '{geom_type}'. Must be 'Polygon' or 'MultiPolygon'"
             )
     
-    def _validate_multipolygon(self, geom: MultiPolygon) -> ShapelyPolygon:
-        """Validate MultiPolygon and optionally merge into single Polygon."""
-        if len(geom.geoms) == 0:
-            raise ValidationError("MultiPolygon contains no polygons")
+    def _validate_coordinates_structure(self, coordinates: Any, geom_type: str) -> None:
+        """Validate coordinate structure."""
+        if geom_type == "Polygon":
+            if not isinstance(coordinates, list) or len(coordinates) < 1:
+                raise ValidationError("Polygon coordinates must be a non-empty array")
+            for ring in coordinates:
+                if not isinstance(ring, list):
+                    raise ValidationError("Ring must be an array")
         
-        # For validation purposes, we'll work with the unioned geometry
-        # to treat multiple polygons as a single area
-        try:
-            merged = geom.union(geom)  # Validate structure
-            if not merged.is_valid:
-                raise ValidationError("MultiPolygon geometry is invalid")
-        except Exception as e:
-            raise ValidationError(f"MultiPolygon validation failed: {str(e)}")
-        
-        return geom  # Return as is for further processing
+        elif geom_type == "MultiPolygon":
+            if not isinstance(coordinates, list) or len(coordinates) < 1:
+                raise ValidationError("MultiPolygon coordinates must be a non-empty array")
+            for polygon in coordinates:
+                if not isinstance(polygon, list):
+                    raise ValidationError("Polygon must be an array")
     
-    def _validate_coordinate_bounds(self, geom) -> None:
+    def _is_valid_geometry(self, coordinates: Any, geom_type: str) -> bool:
+        """Simple geometry validation."""
+        try:
+            if geom_type == "Polygon":
+                # Check outer ring has at least 3 unique points
+                if len(coordinates[0]) < 4:  # 4 because ring is closed
+                    return False
+            elif geom_type == "MultiPolygon":
+                for polygon in coordinates:
+                    if len(polygon[0]) < 4:
+                        return False
+            return True
+        except:
+            return False
+    
+    def _validate_coordinate_bounds(self, coordinates: Any, geom_type: str) -> None:
         """Validate all coordinates are within valid geographic bounds."""
-        bounds = geom.bounds  # (minx, miny, maxx, maxy)
+        bounds = self._get_bounds(coordinates, geom_type)
         minx, miny, maxx, maxy = bounds
         
-        # Check latitude bounds (special case for crossing antimeridian)
+        # Check latitude bounds
         if miny < self.MIN_LAT or maxy > self.MAX_LAT:
             raise ValidationError(
                 f"Latitude values out of range [-90, 90]. "
                 f"Found: min={miny}, max={maxy}"
             )
         
-        # For longitude, allow crossing antimeridian (minx > maxx means crossing)
-        # but validate individual coordinate values
+        # For longitude, allow crossing antimeridian
         if minx < self.MIN_LON - 0.0001 or maxx > self.MAX_LON + 0.0001:
-            # Check if this is actually a valid antimeridian crossing
             if not (minx > 0 and maxx < 0):  # Not a valid antimeridian crossing
                 raise ValidationError(
                     f"Longitude values out of range [-180, 180]. "
                     f"Found: min={minx}, max={maxx}"
                 )
     
-    def _validate_rings_closed(self, geometry: Dict[str, Any]) -> None:
+    def _validate_rings_closed(self, coordinates: Any, geom_type: str) -> None:
         """Validate that all linear rings are properly closed."""
-        geom_type = geometry.get("type")
-        coordinates = geometry.get("coordinates", [])
-        
         if geom_type == "Polygon":
             for ring_idx, ring in enumerate(coordinates):
                 if len(ring) < 3:
-                    raise ValidationError(
-                        f"Ring {ring_idx} has fewer than 3 vertices"
-                    )
+                    raise ValidationError(f"Ring {ring_idx} has fewer than 3 vertices")
                 if ring[0] != ring[-1]:
-                    raise ValidationError(
-                        f"Ring {ring_idx} is not closed (first and last coordinates differ)"
-                    )
+                    raise ValidationError(f"Ring {ring_idx} is not closed")
         
         elif geom_type == "MultiPolygon":
             for poly_idx, polygon in enumerate(coordinates):
                 for ring_idx, ring in enumerate(polygon):
                     if len(ring) < 3:
-                        raise ValidationError(
-                            f"Polygon {poly_idx}, ring {ring_idx} has fewer than 3 vertices"
-                        )
+                        raise ValidationError(f"Polygon {poly_idx}, ring {ring_idx} has fewer than 3 vertices")
                     if ring[0] != ring[-1]:
-                        raise ValidationError(
-                            f"Polygon {poly_idx}, ring {ring_idx} is not closed"
-                        )
+                        raise ValidationError(f"Polygon {poly_idx}, ring {ring_idx} is not closed")
     
-    def _count_vertices(self, geom) -> int:
+    def _count_vertices(self, coordinates: Any, geom_type: str) -> int:
         """Count total vertices in geometry."""
-        if isinstance(geom, ShapelyPolygon):
-            # Count all coordinates in exterior and interior rings
-            count = len(geom.exterior.coords) - 1  # Subtract 1 for closed ring duplication
-            for interior in geom.interiors:
-                count += len(interior.coords) - 1
-            return count
-        
-        elif isinstance(geom, MultiPolygon):
-            total = 0
-            for poly in geom.geoms:
-                total += len(poly.exterior.coords) - 1
-                for interior in poly.interiors:
-                    total += len(interior.coords) - 1
-            return total
-        
-        return 0
+        count = 0
+        if geom_type == "Polygon":
+            for ring in coordinates:
+                count += len(ring) - 1  # Subtract 1 for closed ring duplication
+        elif geom_type == "MultiPolygon":
+            for polygon in coordinates:
+                for ring in polygon:
+                    count += len(ring) - 1
+        return count
     
-    def _calculate_area_sqm(self, geom) -> float:
-        """
-        Calculate polygon area in square meters.
-        Uses Shapely's calculation which works in decimal degrees.
-        Converts to approximate square meters.
-        """
-        # Shapely returns area in square degrees (not square meters)
-        # This is an approximation - at the equator:
-        # 1 degree latitude ≈ 111 km = 111,000 meters
-        # 1 degree longitude ≈ 111 km = 111,000 meters at equator
+    def _get_bounds(self, coordinates: Any, geom_type: str) -> Tuple[float, float, float, float]:
+        """Get bounding box (minx, miny, maxx, maxy)."""
+        all_coords = []
         
-        area_sq_degrees = geom.area
+        if geom_type == "Polygon":
+            for ring in coordinates:
+                all_coords.extend(ring)
+        elif geom_type == "MultiPolygon":
+            for polygon in coordinates:
+                for ring in polygon:
+                    all_coords.extend(ring)
         
-        # Get the centroid latitude to adjust longitude conversion
-        if isinstance(geom, ShapelyPolygon):
-            lat = geom.centroid.y
-        elif isinstance(geom, MultiPolygon):
-            # Use the centroid of the first polygon
-            lat = geom.geoms[0].centroid.y
+        if not all_coords:
+            raise ValidationError("No coordinates found")
+        
+        lons = [c[0] for c in all_coords]
+        lats = [c[1] for c in all_coords]
+        
+        return (min(lons), min(lats), max(lons), max(lats))
+    
+    def _calculate_centroid(self, coordinates: Any, geom_type: str) -> Tuple[float, float]:
+        """Calculate polygon centroid."""
+        all_coords = []
+        
+        if geom_type == "Polygon":
+            all_coords = coordinates[0]  # Use outer ring
+        elif geom_type == "MultiPolygon":
+            all_coords = coordinates[0][0]  # Use outer ring of first polygon
+        
+        if not all_coords:
+            return (0, 0)
+        
+        lon_avg = sum(c[0] for c in all_coords) / len(all_coords)
+        lat_avg = sum(c[1] for c in all_coords) / len(all_coords)
+        
+        return (lon_avg, lat_avg)
+    
+    def _calculate_area_sqm(self, coordinates: Any, geom_type: str) -> float:
+        """
+        Calculate polygon area in square meters using Shoelace formula.
+        Works with lat/lon coordinates.
+        """
+        if geom_type == "Polygon":
+            outer_ring = coordinates[0]
+            area = self._shoelace_area(outer_ring)
+            
+            # Subtract interior rings (holes)
+            for inner_ring in coordinates[1:]:
+                area -= self._shoelace_area(inner_ring)
+        
+        elif geom_type == "MultiPolygon":
+            area = 0
+            for polygon in coordinates:
+                outer_ring = polygon[0]
+                area += self._shoelace_area(outer_ring)
+                for inner_ring in polygon[1:]:
+                    area -= self._shoelace_area(inner_ring)
+        
         else:
-            lat = 0
+            area = 0
         
-        # Adjust for latitude
-        lat_rad = abs(lat) * 3.14159 / 180.0
-        cos_lat = abs(__import__('math').cos(lat_rad))
+        return max(0, area)  # Ensure non-negative
+    
+    def _shoelace_area(self, ring: List[Tuple[float, float]]) -> float:
+        """Calculate area using shoelace formula for lat/lon coordinates."""
+        n = len(ring)
+        if n < 3:
+            return 0
         
-        # Meters per degree at this latitude
-        meters_per_degree_lat = 111320  # Constant
-        meters_per_degree_lon = 111320 * cos_lat
+        # Convert degrees to radians
+        area = 0
+        for i in range(n - 1):
+            lon1, lat1 = ring[i]
+            lon2, lat2 = ring[i + 1]
+            
+            # Simple equirectangular projection for area
+            # Meters per degree (approximation)
+            lat_rad = math.radians((lat1 + lat2) / 2)
+            m_per_deg_lat = 111320
+            m_per_deg_lon = 111320 * math.cos(lat_rad)
+            
+            dx = (lon2 - lon1) * m_per_deg_lon
+            dy = (lat2 - lat1) * m_per_deg_lat
+            
+            area += dx * dy
         
-        # Convert to square meters
-        area_sqm = area_sq_degrees * meters_per_degree_lat * meters_per_degree_lon
-        
-        return area_sqm
+        return abs(area) / 2

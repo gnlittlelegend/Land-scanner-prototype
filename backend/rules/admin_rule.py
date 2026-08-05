@@ -7,7 +7,6 @@ information for the analyzed polygon.
 
 import logging
 from typing import Dict, Any, List
-from shapely.geometry import shape
 
 from backend.models.schemas import (
     StandardizedDataset,
