@@ -169,7 +169,7 @@ class DataSourceManager:
               are logged and handled gracefully. The method always returns
               a RawDataCollection with status information.
         """
-        polygon_area = polygon.get('properties', {}).get('area_square_kilometers', 0)
+        polygon_area = polygon.area_sqkm  # PolygonMetadata has area_sqkm attribute
         self.logger.info(
             f"Starting data collection for polygon (area: {polygon_area:.2f} km²)"
         )
