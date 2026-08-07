@@ -142,7 +142,7 @@ class ProviderStatus(BaseModel):
 
 class AnalysisSummary(BaseModel):
     """Summary of analysis results"""
-    polygon_area_sqkm: float
+    polygon_area_sqm: float
     analysis_date: datetime
     primary_land_cover: Optional[str] = None
     key_findings: List[str] = Field(default_factory=list)

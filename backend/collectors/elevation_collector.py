@@ -75,7 +75,7 @@ class ElevationCollector(DataCollector):
                     "type": "Feature",
                     "geometry": {"type": "Polygon", "coordinates": [...]},
                     "properties": {
-                        "area_square_kilometers": float,
+                        "area_sqm": float,
                         "bounding_box": {"min_lon", "min_lat", "max_lon", "max_lat"},
                         "centroid": {"longitude": float, "latitude": float},
                         "vertex_count": int,
@@ -93,9 +93,9 @@ class ElevationCollector(DataCollector):
         attempt_count = 0
         
         try:
-            area_sqkm = polygon['properties'].get('area_square_kilometers', 0)
+            area_sqm = polygon['properties'].get('area_sqm', 0)
             self.logger.info(
-                f"Collecting USGS elevation data for area {area_sqkm:.2f} sqkm"
+                f"Collecting USGS elevation data for area {area_sqm:.0f} m²"
             )
             
             # Generate grid points for sampling within polygon

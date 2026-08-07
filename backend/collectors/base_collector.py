@@ -101,7 +101,7 @@ class DataCollector(ABC):
                     "type": "Feature",
                     "geometry": {"type": "Polygon", "coordinates": [...]},
                     "properties": {
-                        "area_square_kilometers": float,
+                        "area_sqm": float,
                         "bounding_box": {"min_lon", "min_lat", "max_lon", "max_lat"},
                         "centroid": {"longitude": float, "latitude": float},
                         "vertex_count": int,

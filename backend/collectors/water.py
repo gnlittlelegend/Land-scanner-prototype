@@ -101,7 +101,7 @@ class WaterBodiesCollector(DataCollector):
                     [centroid_lon - 0.3, centroid_lat - 0.2],
                     [centroid_lon - 0.3, centroid_lat - 0.5]
                 ]]},
-                "properties": {"name": "Crystal Lake", "water_type": "lake", "area_sqkm": 2.5}
+                "properties": {"name": "Crystal Lake", "water_type": "lake", "area_sqm": 2500000}
             },
             {
                 "id": "water_stream_001",

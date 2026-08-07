@@ -103,4 +103,66 @@ def provider_status_list_strategy(draw) -> List[ProviderStatus]:
         statuses.append(ProviderStatus(
             provider_name=provider,
             status="available" if available else "unavailable",
-            feature_count=draw(st.integers(min_value=0, max_value=1000)) if available
+            feature_count=draw(st.integers(min_value=0, max_value=1000)) if available else 0
+        ))
+    
+    return statuses
+
+
+@settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    rule_results=rule_results_strategy(),
+    provider_statuses=provider_status_list_strategy()
+)
+def test_output_format_consistency_property(rule_results, provider_statuses):
+    """
+    Property: Output Format Consistency
+    
+    For any analysis request that completes (successfully or with errors),
+    the system should return valid JSON with required fields: request_id, status,
+    timestamp, analysis_summary, land_information, processing_status, provider_status.
+    
+    Feature: land-scanner, Property 9: Output Format Consistency
+    Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.7, 6.8, 9.4, 9.5
+    """
+    # Generator creates responses
+    generator = OutputGenerator()
+    
+    # Generate mock response
+    response = AnalysisResponse(
+        request_id="test-request-id",
+        status="success" if any(r.status == ProcessingStatus.SUCCESS for r in rule_results.values()) else "partial",
+        timestamp=datetime.utcnow(),
+        processing_time_ms=1000,
+        land_information={},
+        processing_status=ProcessingStatus(
+            validation="success",
+            data_collection="success",
+            standardization="success",
+            rule_engine="success",
+            output_generation="success"
+        ),
+        provider_status={p.provider_name: p for p in provider_statuses},
+        errors=[]
+    )
+    
+    # Convert to dict
+    response_dict = response.model_dump()
+    
+    # Verify required fields exist
+    required_fields = [
+        "request_id", "status", "timestamp",
+        "land_information", "processing_status", "provider_status"
+    ]
+    
+    for field in required_fields:
+        assert field in response_dict, f"Missing required field: {field}"
+    
+    # Verify request_id is not None
+    assert response_dict["request_id"] is not None
+    
+    # Verify timestamp is in ISO format
+    assert isinstance(response_dict["timestamp"], str) or isinstance(response_dict["timestamp"], datetime)
+    
+    # Verify status is valid
+    assert response_dict["status"] in ["success", "partial", "error"]

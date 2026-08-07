@@ -13,8 +13,20 @@ class ValidationError(Exception):
 
 @dataclass
 class PolygonMetadata:
-    """Metadata extracted during polygon validation."""
-    area_sqkm: float
+    """Metadata extracted during polygon validation.
+    
+    All area measurements are expressed exclusively in square metres (m²).
+    The valid range for polygon areas is 10 m² to 100,000,000 m².
+    
+    Attributes:
+        area_sqm: Area of the polygon in square metres (m²)
+        bounding_box: Bounding box coordinates (minx, miny, maxx, maxy)
+        centroid: Centroid coordinates (lon, lat)
+        num_vertices: Total number of vertices in the polygon
+        geom_type: Geometry type ("Polygon" or "MultiPolygon")
+        is_valid: Whether the polygon passed all validation checks
+        crs: Coordinate Reference System (typically "EPSG:4326" for WGS84)
+    """
     area_sqm: float
     bounding_box: Tuple[float, float, float, float]  # (minx, miny, maxx, maxy)
     centroid: Tuple[float, float]  # (lon, lat)
@@ -25,13 +37,24 @@ class PolygonMetadata:
 
 
 class PolygonValidator:
-    """Validates GeoJSON polygon inputs with comprehensive checking."""
+    """Validates GeoJSON polygon inputs with comprehensive checking.
     
-    # Constants for validation limits
-    MIN_AREA_SQM = 10  # 10 square meters
-    MAX_AREA_SQM = 100 * 1e6  # 100 square kilometers in square meters
-    MIN_AREA_SQKM = MIN_AREA_SQM / 1e6
-    MAX_AREA_SQKM = MAX_AREA_SQM / 1e6
+    Validates polygon geometries according to RFC 7946 GeoJSON specification.
+    All area measurements are standardized to square metres (m²).
+    
+    Valid polygon areas: 10 m² to 100,000,000 m² (100 km² equivalent)
+    Maximum vertices per polygon: 10,000
+    
+    Examples:
+        Minimum valid polygon: 10 m² (e.g., a small 3m x 3.33m triangle)
+        Maximum valid polygon: 100,000,000 m² (e.g., 10 km × 10 km square)
+        Invalid polygon below minimum: 5 m² will be rejected
+        Invalid polygon above maximum: 150,000,000 m² will be rejected
+    """
+    
+    # Constants for validation limits (all in square metres)
+    MIN_AREA_SQM = 10  # 10 square metres
+    MAX_AREA_SQM = 100 * 1e6  # 100,000,000 square metres
     MAX_VERTICES = 10_000
     
     # Coordinate bounds
@@ -44,11 +67,14 @@ class PolygonValidator:
         """
         Validate a GeoJSON polygon and return metadata.
         
+        All area measurements in the returned metadata are expressed 
+        exclusively in square metres (m²).
+        
         Args:
             geojson_input: GeoJSON dictionary
             
         Returns:
-            PolygonMetadata with polygon information
+            PolygonMetadata with polygon information (all areas in m²)
             
         Raises:
             ValidationError: If polygon is invalid
@@ -96,7 +122,6 @@ class PolygonValidator:
         
         # Step 10: Validate polygon area
         area_sqm = self._calculate_area_sqm(coordinates, geom_type)
-        area_sqkm = area_sqm / 1e6
         
         if area_sqm < self.MIN_AREA_SQM:
             raise ValidationError(
@@ -104,7 +129,7 @@ class PolygonValidator:
             )
         if area_sqm > self.MAX_AREA_SQM:
             raise ValidationError(
-                f"Polygon area {area_sqkm:.2f} km² exceeds maximum of {self.MAX_AREA_SQKM:.2f} km²"
+                f"Polygon area {area_sqm:.0f} m² exceeds maximum of {self.MAX_AREA_SQM:.0f} m²"
             )
         
         # Step 11: Calculate metadata
@@ -112,7 +137,6 @@ class PolygonValidator:
         centroid = self._calculate_centroid(coordinates, geom_type)
         
         return PolygonMetadata(
-            area_sqkm=area_sqkm,
             area_sqm=area_sqm,
             bounding_box=bounds,
             centroid=centroid,
@@ -265,8 +289,23 @@ class PolygonValidator:
     
     def _calculate_area_sqm(self, coordinates: Any, geom_type: str) -> float:
         """
-        Calculate polygon area in square meters using Shoelace formula.
-        Works with lat/lon coordinates.
+        Calculate polygon area in square metres using Shoelace formula.
+        
+        Converts geographic coordinates (lat/lon) to a projected coordinate system
+        and calculates area using the shoelace formula. All results are expressed
+        in square metres (m²).
+        
+        Args:
+            coordinates: GeoJSON coordinates (format depends on geom_type)
+            geom_type: Geometry type ("Polygon" or "MultiPolygon")
+            
+        Returns:
+            Area of the polygon in square metres (m²)
+            
+        Examples:
+            Small polygon (1m × 1m square): ~1 m²
+            Medium polygon (100m × 100m square): ~10,000 m²
+            Large polygon (1km × 1km square): ~1,000,000 m²
         """
         if geom_type == "Polygon":
             outer_ring = coordinates[0]
@@ -290,26 +329,46 @@ class PolygonValidator:
         return max(0, area)  # Ensure non-negative
     
     def _shoelace_area(self, ring: List[Tuple[float, float]]) -> float:
-        """Calculate area using shoelace formula for lat/lon coordinates."""
+        """
+        Calculate area using shoelace formula for lat/lon coordinates.
+        
+        Converts geographic coordinates to a projected coordinate system using
+        equirectangular projection, then applies the shoelace formula.
+        All results are in square metres (m²).
+        
+        Args:
+            ring: List of coordinate pairs [lon, lat]
+            
+        Returns:
+            Area of the ring in square metres (m²)
+            
+        Note:
+            Uses equirectangular projection approximation. For high-precision
+            calculations on large areas, other projections may be more accurate.
+        """
         n = len(ring)
         if n < 3:
             return 0
         
-        # Convert degrees to radians
+        # Shoelace formula for geographic coordinates
+        # Convert each point to meters, then apply shoelace
         area = 0
         for i in range(n - 1):
             lon1, lat1 = ring[i]
             lon2, lat2 = ring[i + 1]
             
-            # Simple equirectangular projection for area
+            # Convert to meters using equirectangular projection
             # Meters per degree (approximation)
-            lat_rad = math.radians((lat1 + lat2) / 2)
+            lat_rad_mid = math.radians((lat1 + lat2) / 2)
             m_per_deg_lat = 111320
-            m_per_deg_lon = 111320 * math.cos(lat_rad)
+            m_per_deg_lon = 111320 * math.cos(lat_rad_mid)
             
-            dx = (lon2 - lon1) * m_per_deg_lon
-            dy = (lat2 - lat1) * m_per_deg_lat
+            x1 = lon1 * m_per_deg_lon
+            y1 = lat1 * m_per_deg_lat
+            x2 = lon2 * m_per_deg_lon
+            y2 = lat2 * m_per_deg_lat
             
-            area += dx * dy
+            # Shoelace cross product: (x1 * y2 - x2 * y1)
+            area += x1 * y2 - x2 * y1
         
         return abs(area) / 2

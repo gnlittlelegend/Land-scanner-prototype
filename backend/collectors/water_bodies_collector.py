@@ -73,7 +73,7 @@ class WaterBodiesCollector(DataCollector):
                     "type": "Feature",
                     "geometry": {"type": "Polygon", "coordinates": [...]},
                     "properties": {
-                        "area_square_kilometers": float,
+                        "area_sqm": float,
                         "bounding_box": {"min_lon", "min_lat", "max_lon", "max_lat"},
                         "centroid": {"longitude": float, "latitude": float},
                         "vertex_count": int,
@@ -96,7 +96,7 @@ class WaterBodiesCollector(DataCollector):
             query = self._build_overpass_query(bbox)
             
             self.logger.info(
-                f"Collecting OSM water bodies for area {polygon['properties'].get('area_square_kilometers', 0):.2f} sqkm"
+                f"Collecting OSM water bodies for area {polygon['properties'].get('area_sqm', 0):.0f} m²"
             )
             
             # Query Overpass API with production endpoint

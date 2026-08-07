@@ -7,7 +7,7 @@
   "timeout": 30,
   "retry_count": 3,
   "rate_limit_delay": 2,
-  "max_polygon_area_sqkm": 100,
-  "min_polygon_area_sqkm": 0.00001,
+  "max_polygon_area_sqm": 100000000,
+  "min_polygon_area_sqm": 10,
   "max_vertices": 10000
 }

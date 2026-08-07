@@ -102,7 +102,7 @@ class DataCollector(ABC):
         """Log the start of data collection."""
         self.logger.info(
             f"Starting data collection for {self.category.value}: "
-            f"area={polygon.area_sqkm:.2f} sq km, "
+            f"area={polygon.area_sqm:.0f} m², "
             f"bounds={polygon.bounding_box}"
         )
     

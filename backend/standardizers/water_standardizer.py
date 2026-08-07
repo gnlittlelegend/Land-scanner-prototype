@@ -15,11 +15,24 @@ class WaterStandardizer:
     """
     Standardizes water body properties from various providers.
     
+    Normalizes water feature data from different data sources (OpenStreetMap, etc.)
+    into a consistent standardized schema. All area measurements are standardized
+    to square metres (m²), regardless of the input unit.
+    
     Handles:
     - OpenStreetMap water features (rivers, streams, lakes, reservoirs, canals, wetlands)
     - Water type classification (natural vs man-made)
     - Water body attributes (depth, width, flow type, salinity, etc.)
     - Water use and access information
+    
+    Area conversion:
+    - Input: km², m², or other units
+    - Output: All areas expressed in square metres (m²)
+    
+    Examples:
+    - River area input (area_sqkm: 0.5 km²) → standardized (area_sqm: 500,000 m²)
+    - Lake area input (area: 2.5 km²) → standardized (area_sqm: 2,500,000 m²)
+    - Pond area input (area: 1000 m²) → standardized (area_sqm: 1,000 m²)
     """
 
     # Standardized water types mapping from various provider formats
@@ -136,7 +149,7 @@ class WaterStandardizer:
         ("depth_min", "min_depth", "water:depth_min"): "min_depth_m",
         ("width", "width_m", "avg_width", "water:width"): "width_m",
         ("length", "length_km", "length", "water:length"): "length_km",
-        ("area", "area_sqkm", "area_km2", "water:area"): "area_sqkm",
+        ("area", "area_sqkm", "area_km2", "area_sqm", "water:area"): "area_sqm",
         ("volume", "volume_cubic_m", "volume_m3"): "volume_cubic_m",
         
         # Flow characteristics
@@ -180,14 +193,27 @@ class WaterStandardizer:
         provider: str = "unknown"
     ) -> Dict[str, Any]:
         """
-        Standardize water body properties.
+        Standardize water body properties from provider data.
+        
+        Converts provider-specific field names and values into standardized format.
+        Crucially, all area measurements are converted to square metres (m²).
         
         Args:
-            raw_properties: Raw properties from provider
-            provider: Provider name (for logging)
+            raw_properties: Raw properties dictionary from provider
+            provider: Provider name for logging and context (default: "unknown")
             
         Returns:
-            Standardized properties dictionary
+            Standardized properties dictionary with:
+            - All area fields converted to area_sqm (in square metres)
+            - No km² or square kilometre units in output
+            - Consistent field naming across all water features
+            
+        Examples:
+            Input: {"area_sqkm": 0.5, "name": "Lake"}
+            Output: {"area_sqm": 500000.0, "name": "Lake"}
+            
+            Input: {"area": 1000, "water_type": "pond"}
+            Output: {"area_sqm": 1000000.0, "water_type": "pond"}
         """
         standardized = {}
 
@@ -265,12 +291,15 @@ class WaterStandardizer:
             "min_depth_m",
             "width_m",
             "length_km",
-            "area_sqkm",
             "volume_cubic_m",
             "temperature_c",
             "ph"
         ]:
             return cls._normalize_numeric(value)
+        
+        # Handle area field - convert to square metres
+        if field_name == "area_sqm":
+            return cls._normalize_area_to_sqm(value, raw_key)
         
         # Handle boolean fields
         if field_name in [
@@ -363,6 +392,79 @@ class WaterStandardizer:
                         break
                 return float(value_str)
             return float(value)
+        except (ValueError, TypeError, AttributeError):
+            return None
+
+    @classmethod
+    def _normalize_area_to_sqm(cls, value: Any, raw_key: str = "") -> float:
+        """
+        Normalize area values to square metres (m²).
+        
+        Converts area measurements from various input units to square metres.
+        Handles square kilometres (km²), square metres (m²), and feet (ft²).
+        
+        Args:
+            value: Raw area value (can include unit suffix like "5km²", "1000m²", "50ft²")
+            raw_key: Original raw field name to help detect input unit
+            
+        Returns:
+            Area in square metres (m²), or None if cannot convert
+            
+        Examples:
+            Input: value=0.5, raw_key="area_sqkm" → Output: 500000.0 m²
+            Input: value="2 km²" → Output: 2000000.0 m²
+            Input: value="100000 m²" → Output: 100000.0 m²
+            Input: value="500000" (generic) → Output: 500000.0 m² (assumed m²)
+            
+        Note:
+            When the unit is ambiguous, the function assumes square kilometres (km²)
+            for generic "area" fields based on OSM conventions for large areas.
+        """
+        try:
+            # First, parse the numeric value
+            numeric_value = None
+            
+            if isinstance(value, str):
+                # Remove common units and parse
+                value_str = value.strip().lower()
+                
+                # Remove units
+                for unit in ["m²", "m2", "sqm", "square meter", "square metres", "square meters",
+                             "km²", "km2", "sqkm", "square kilometer", "square kilometres", 
+                             "square kilometers", "ft²", "ft2", "sqft"]:
+                    if value_str.endswith(unit):
+                        value_str = value_str[:-len(unit)].strip()
+                        break
+                
+                numeric_value = float(value_str)
+            else:
+                numeric_value = float(value)
+            
+            if numeric_value is None:
+                return None
+            
+            # Detect if input is in km² and convert to m²
+            raw_key_lower = str(raw_key).lower() if raw_key else ""
+            
+            # If raw key indicates km², convert to m²
+            if any(km_indicator in raw_key_lower for km_indicator in ["km2", "km²", "sqkm", "kilometer"]):
+                return numeric_value * 1_000_000  # Convert km² to m²
+            
+            # If raw key indicates m², use as is
+            if any(m_indicator in raw_key_lower for m_indicator in ["sqm", "m2", "m²", "meter"]):
+                return numeric_value
+            
+            # If raw key is just "area" or generic, assume it's km² (OSM convention for large areas)
+            if raw_key_lower in ["area", "area_km2", "area_sqkm", "water:area"]:
+                return numeric_value * 1_000_000  # Convert km² to m²
+            
+            # Special case: if raw key is area_sqm, already in m²
+            if raw_key_lower == "area_sqm":
+                return numeric_value
+            
+            # Default: return as square metres (assume already in m² if unit unknown)
+            return numeric_value
+            
         except (ValueError, TypeError, AttributeError):
             return None
 

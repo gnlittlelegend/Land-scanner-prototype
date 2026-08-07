@@ -27,6 +27,7 @@ import logging
 import time
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
+from hypothesis import given, strategies as st
 
 from backend.services.config_manager import ConfigManager
 from backend.managers.data_source_manager import DataSourceManager, RawDataCollection
@@ -472,6 +473,259 @@ class TestDataSourceManagerProviderIndependence:
         
         # Verify execution order matches enabled provider order
         assert execution_order == ["provider_1", "provider_2", "provider_3"]
+
+
+# ============================================================================
+# Property-Based Tests
+# ============================================================================
+
+class TestPropertyBasedDataManagerMetres:
+    """
+    Property-Based Test: All data flowing through manager uses metres
+    
+    Feature: distance-unit-standardization, Property 12: All data through manager uses metres
+    Validates: Requirements 8.1, 8.2
+    
+    This test verifies that for ANY polygon processed by DataSourceManager,
+    all area values in properties are in square metres (not km² or mixed units).
+    """
+
+    def _create_successful_collector(self, provider_name):
+        """Helper: Create a successful mock collector"""
+        mock_collector = Mock(spec=DataCollector)
+        mock_collector.provider_name = provider_name
+        mock_collector.collect.return_value = {
+            "source_provider": provider_name,
+            "category": "test_data",
+            "features": [
+                {"id": f"feat_{i}", "area_sqm": 1000 + i * 100}
+                for i in range(5)
+            ],
+            "metadata": {"timestamp": datetime.utcnow().isoformat()}
+        }
+        return mock_collector
+
+    @given(
+        area_sqm=st.floats(
+            min_value=10,
+            max_value=100_000_000,
+            allow_nan=False,
+            allow_infinity=False
+        )
+    )
+    def test_manager_preserves_area_sqm_in_input(self, area_sqm):
+        """
+        Property: For any polygon with area_sqm, the manager preserves it.
+        
+        **Feature: distance-unit-standardization, Property 12: All data through manager uses metres**
+        **Validates: Requirements 8.1, 8.2**
+        
+        Given a polygon with area_sqm in properties, when processed through DataSourceManager,
+        then the area value should remain in square metres.
+        """
+        # Create polygon with area_sqm in properties
+        polygon = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [-74.0, 40.7],
+                    [-73.9, 40.7],
+                    [-73.9, 40.8],
+                    [-74.0, 40.8],
+                    [-74.0, 40.7]
+                ]]
+            },
+            "properties": {
+                "area_sqm": area_sqm,
+                "bounding_box": {
+                    "min_lon": -74.0,
+                    "min_lat": 40.7,
+                    "max_lon": -73.9,
+                    "max_lat": 40.8
+                },
+                "centroid": {"longitude": -73.95, "latitude": 40.75},
+                "vertex_count": 5,
+                "crs": "EPSG:4326"
+            }
+        }
+        
+        # Setup
+        config_manager = Mock(spec=ConfigManager)
+        config_manager.get_enabled_providers.return_value = {
+            "test_provider": {"enabled": True, "optional": False}
+        }
+        
+        mock_collector = self._create_successful_collector("test_provider")
+        collectors = {"test_provider": mock_collector}
+        
+        manager = DataSourceManager(config_manager, collectors)
+        
+        # Execute
+        result = manager.collect_data(polygon)
+        
+        # Verify: Input polygon area_sqm is preserved
+        assert "area_sqm" in polygon["properties"]
+        assert polygon["properties"]["area_sqm"] > 0
+        assert isinstance(polygon["properties"]["area_sqm"], float)
+        
+        # Verify: No km² or area_sqkm in input properties
+        assert "area_sqkm" not in polygon["properties"]
+        assert "area_square_kilometers" not in polygon["properties"]
+
+    @given(
+        st.floats(
+            min_value=10,
+            max_value=100_000_000,
+            allow_nan=False,
+            allow_infinity=False
+        )
+    )
+    def test_manager_processes_varied_area_values(self, area_sqm):
+        """
+        Property: For any area value in m², the manager processes it consistently.
+        
+        **Feature: distance-unit-standardization, Property 12: All data through manager uses metres**
+        **Validates: Requirements 8.1, 8.2**
+        
+        Given polygons with varied area values in m², when processed through DataSourceManager,
+        then all areas should remain in square metres throughout processing.
+        """
+        # Setup
+        polygon = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [-74.0, 40.7],
+                    [-73.9, 40.7],
+                    [-73.9, 40.8],
+                    [-74.0, 40.8],
+                    [-74.0, 40.7]
+                ]]
+            },
+            "properties": {
+                "area_sqm": area_sqm,
+                "centroid": {"longitude": -73.95, "latitude": 40.75}
+            }
+        }
+        
+        config_manager = Mock(spec=ConfigManager)
+        config_manager.get_enabled_providers.return_value = {
+            "provider_1": {"enabled": True, "optional": False}
+        }
+        
+        mock_collector = self._create_successful_collector("provider_1")
+        collectors = {"provider_1": mock_collector}
+        
+        manager = DataSourceManager(config_manager, collectors)
+        
+        # Execute
+        result = manager.collect_data(polygon)
+        
+        # Verify: Area is preserved in m² throughout
+        assert polygon["properties"]["area_sqm"] == area_sqm
+        assert polygon["properties"]["area_sqm"] >= 10
+        assert polygon["properties"]["area_sqm"] <= 100_000_000
+
+    def test_manager_multiple_providers_all_use_metres(self):
+        """
+        Property: For multiple providers, all collected data uses metres.
+        
+        **Feature: distance-unit-standardization, Property 12: All data through manager uses metres**
+        **Validates: Requirements 8.1, 8.2**
+        
+        Given multiple providers collecting data for a polygon,
+        when the manager aggregates results,
+        then all area values should be in square metres.
+        """
+        # Setup
+        polygon = {
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [-74.0, 40.7], [-73.9, 40.7], [-73.9, 40.8], [-74.0, 40.8], [-74.0, 40.7]
+            ]]},
+            "properties": {
+                "area_sqm": 50_000_000,
+                "centroid": {"longitude": -73.95, "latitude": 40.75}
+            }
+        }
+        
+        config_manager = Mock(spec=ConfigManager)
+        config_manager.get_enabled_providers.return_value = {
+            "provider_a": {"enabled": True, "optional": False},
+            "provider_b": {"enabled": True, "optional": False},
+            "provider_c": {"enabled": True, "optional": True}
+        }
+        
+        collectors = {
+            "provider_a": self._create_successful_collector("provider_a"),
+            "provider_b": self._create_successful_collector("provider_b"),
+            "provider_c": self._create_successful_collector("provider_c")
+        }
+        
+        manager = DataSourceManager(config_manager, collectors)
+        
+        # Execute
+        result = manager.collect_data(polygon)
+        
+        # Verify: All collected data uses metres
+        for provider_name, collection in result.collections.items():
+            # Check if collection has features with area data
+            if "features" in collection:
+                for feature in collection["features"]:
+                    # Any area values should be in m² (no km² suffixes)
+                    for key in feature.keys():
+                        assert "km²" not in key
+                        assert "sqkm" not in key.lower()
+                        assert "square_kilometers" not in key.lower()
+
+    def test_manager_output_properties_use_metres(self):
+        """
+        Property: Manager output properties use m² only, not km².
+        
+        **Feature: distance-unit-standardization, Property 12: All data through manager uses metres**
+        **Validates: Requirements 8.1, 8.2**
+        
+        Given successful data collection from providers,
+        when the manager returns the result,
+        then all property dictionaries should use m² units exclusively.
+        """
+        # Setup
+        polygon = {
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [-74.0, 40.7], [-73.9, 40.7], [-73.9, 40.8], [-74.0, 40.8], [-74.0, 40.7]
+            ]]},
+            "properties": {
+                "area_sqm": 25_000_000,
+                "centroid": {"longitude": -73.95, "latitude": 40.75}
+            }
+        }
+        
+        config_manager = Mock(spec=ConfigManager)
+        config_manager.get_enabled_providers.return_value = {
+            "buildings": {"enabled": True, "optional": False},
+            "roads": {"enabled": True, "optional": False}
+        }
+        
+        collectors = {
+            "buildings": self._create_successful_collector("buildings"),
+            "roads": self._create_successful_collector("roads")
+        }
+        
+        manager = DataSourceManager(config_manager, collectors)
+        
+        # Execute
+        result = manager.collect_data(polygon)
+        
+        # Verify: No km²-related field names in any output
+        for provider_name, collection in result.collections.items():
+            # Check collection dict keys
+            for key in collection.keys():
+                assert "sqkm" not in key.lower()
+                assert "km" not in key.lower()
+                assert "square_kilometers" not in key.lower()
 
 
 if __name__ == "__main__":

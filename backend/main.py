@@ -414,11 +414,11 @@ async def analyze_polygon(data: dict):
             # Prepare collectors - IDs must match config/providers.json keys
             collectors = {
                 "osm_buildings": OSMBuildingsCollector(timeout=30),
-                "osm_admin_boundaries": AdminBoundariesCollector(timeout=30),
-                "osm_roads": RoadNetworkCollector(timeout=30),
-                "osm_water": WaterBodiesCollector(timeout=30),
-                "usgs_elevation": ElevationCollector(timeout=45),
-                "copernicus_land_cover": LandCoverCollector(timeout=45),
+                "admin_boundaries": AdminBoundariesCollector(timeout=30),
+                "roads": RoadNetworkCollector(timeout=30),
+                "water": WaterBodiesCollector(timeout=30),
+                "elevation": ElevationCollector(timeout=45),
+                "land_cover": LandCoverCollector(timeout=45),
             }
             
             # Create data source manager

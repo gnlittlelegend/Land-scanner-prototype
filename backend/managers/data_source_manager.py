@@ -150,7 +150,7 @@ class DataSourceManager:
                     "type": "Feature",
                     "geometry": {"type": "Polygon", "coordinates": [...]},
                     "properties": {
-                        "area_square_kilometers": float,
+                        "area_sqm": float,
                         "bounding_box": {...},
                         "centroid": {...},
                         ...
@@ -169,9 +169,14 @@ class DataSourceManager:
               are logged and handled gracefully. The method always returns
               a RawDataCollection with status information.
         """
-        polygon_area = polygon.area_sqkm  # PolygonMetadata has area_sqkm attribute
+        # Handle both PolygonMetadata objects and dict (for testing)
+        if isinstance(polygon, dict):
+            polygon_area = polygon.get('area_sqm', polygon.get('area_sqm', 0))
+        else:
+            # PolygonMetadata object
+            polygon_area = polygon.area_sqm
         self.logger.info(
-            f"Starting data collection for polygon (area: {polygon_area:.2f} km²)"
+            f"Starting data collection for polygon (area: {polygon_area:.0f} m²)"
         )
         
         # Initialize collection result

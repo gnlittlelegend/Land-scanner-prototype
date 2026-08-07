@@ -18,7 +18,7 @@ def test_elevation_collector_real():
     collector = ElevationCollector(timeout=30)
     print("✓ Elevation collector created")
     
-    # Create a test polygon (small area in San Francisco, ~1 km²)
+    # Create a test polygon (small area in San Francisco, ~1,000,000 m²)
     test_polygon = {
         'type': 'Feature',
         'geometry': {
@@ -37,14 +37,14 @@ def test_elevation_collector_real():
     # Validate polygon first
     validator = PolygonValidator()
     validated = validator.validate(test_polygon)
-    print(f"✓ Polygon validated: {validated.area_sqkm:.2f} km²")
+    print(f"✓ Polygon validated: {validated.area_sqm:.0f} m²")
     
     # Create validated polygon dict
     validated_dict = {
         'type': 'Feature',
         'geometry': test_polygon['geometry'],
         'properties': {
-            'area_square_kilometers': validated.area_sqkm,
+            'area_sqm': validated.area_sqm,
             'bounding_box': validated.bounding_box,
             'centroid': validated.centroid,
             'vertex_count': 5,

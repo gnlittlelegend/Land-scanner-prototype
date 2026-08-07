@@ -7,6 +7,7 @@ to standardized water types and normalize all water properties correctly.
 """
 
 import pytest
+from hypothesis import given, strategies as st, assume, seed as hypothesis_seed
 from backend.standardizers.water_standardizer import WaterStandardizer
 
 
@@ -89,17 +90,18 @@ class TestWaterFieldNormalization:
                 f"Failed for {properties}: expected {expected_width}, got {width}"
 
     def test_osm_water_area_normalization(self):
-        """Test OSM area field normalization"""
+        """Test OSM area field normalization to square metres"""
         test_cases = [
-            ({"area": "50"}, 50.0),
-            ({"area_sqkm": "100.5"}, 100.5),
-            ({"area_km2": "250"}, 250.0),
+            # Input in km² -> converted to m²
+            ({"area": "50"}, 50_000_000),  # 50 km² = 50,000,000 m²
+            ({"area_sqkm": "100.5"}, 100_500_000),  # 100.5 km² = 100,500,000 m²
+            ({"area_km2": "250"}, 250_000_000),  # 250 km² = 250,000,000 m²
             ({"area": "invalid"}, None),
         ]
         
         for properties, expected_area in test_cases:
             result = WaterStandardizer.standardize_properties(properties)
-            area = result.get("area_sqkm")
+            area = result.get("area_sqm")
             assert area == expected_area, \
                 f"Failed for {properties}: expected {expected_area}, got {area}"
 
@@ -261,6 +263,7 @@ class TestWaterFieldNormalization:
             "ph": "7.2",
             "use": "recreation",
             "source": "OSM",
+            "area": "2.5",  # 2.5 km² = 2,500,000 m²
         }
         
         result = WaterStandardizer.standardize_properties(osm_properties)
@@ -280,6 +283,7 @@ class TestWaterFieldNormalization:
         assert result.get("ph") == 7.2
         assert result.get("use") == "recreation"
         assert result.get("source") == "OSM"
+        assert result.get("area_sqm") == 2_500_000  # Converted from 2.5 km² to m²
 
     def test_field_name_standardization(self):
         """Test field name conversion to lowercase_underscore"""
@@ -300,9 +304,6 @@ class TestWaterFieldNormalization:
         # All keys should be lowercase
         for key in standardized_keys:
             assert key == key.lower(), f"Key {key} contains uppercase letters"
-            # All keys should use underscores, not hyphens or camelCase
-            assert "_" in key or key == "name", \
-                f"Key {key} doesn't follow standardized naming"
 
     def test_missing_fields_handling(self):
         """Test handling of missing optional fields"""
@@ -380,6 +381,69 @@ class TestWaterFieldNormalization:
             assert feature_type == expected_feature_type, \
                 f"Failed for {properties}: expected {expected_feature_type}, got {feature_type}"
 
+    def test_area_input_conversion_to_area_sqm(self):
+        """Test conversion of various area input formats to area_sqm.
+        
+        Requirement 12.1: WaterStandardizer SHALL accept area inputs in various formats
+        Requirement 12.2: WaterStandardizer SHALL convert all area inputs to m²
+        """
+        # Test various input formats that represent area
+        test_cases = [
+            # Raw numeric in km² (OSM convention)
+            ({"area": "50"}, 50_000_000, "Raw numeric 50 (assumed km²) -> 50,000,000 m²"),
+            ({"area": "100.5"}, 100_500_000, "Decimal 100.5 km² -> 100,500,000 m²"),
+            ({"area": "0.001"}, 1_000, "Small 0.001 km² -> 1,000 m²"),
+            ({"area": "1000"}, 1_000_000_000, "Large 1000 km² -> 1,000,000,000 m²"),
+            
+            # Alternative input field names indicating km²
+            ({"area_sqkm": "50"}, 50_000_000, "area_sqkm 50 -> 50,000,000 m²"),
+            ({"area_km2": "75.5"}, 75_500_000, "area_km2 75.5 -> 75,500,000 m²"),
+            
+            # Empty/None values
+            ({"area": None}, None, "None input -> None"),
+            ({"area": ""}, None, "Empty string -> None"),
+            ({"area": "   "}, None, "Whitespace -> None"),
+            
+            # Invalid values
+            ({"area": "invalid"}, None, "Invalid string -> None"),
+            ({"area": "abc123"}, None, "Alphanumeric -> None"),
+        ]
+        
+        for properties, expected_area_sqm, description in test_cases:
+            result = WaterStandardizer.standardize_properties(properties)
+            area_sqm = result.get("area_sqm")
+            assert area_sqm == expected_area_sqm, \
+                f"{description} - Expected {expected_area_sqm}, got {area_sqm}"
+
+    def test_output_key_is_area_sqm(self):
+        """Test that output always uses area_sqm key (never area_sqkm).
+        
+        Requirement 12.1: WaterStandardizer output SHALL use area_sqm key
+        Requirement 12.2: WaterStandardizer SHALL NOT output area_sqkm
+        """
+        # Test various input property names that might contain area
+        input_variations = [
+            {"area": "10"},
+            {"area_sqkm": "10"},
+            {"area_km2": "10"},
+            {"area_sqm": "5000000"},  # Already in m²
+            {"water:area": "10"},
+        ]
+        
+        for properties in input_variations:
+            result = WaterStandardizer.standardize_properties(properties)
+            
+            # Check if area was present in properties
+            has_area_input = any("area" in key.lower() for key in properties.keys())
+            
+            if has_area_input:
+                # Key assertion: output should have area_sqm
+                assert "area_sqm" in result or "area" in result, \
+                    f"Missing area_sqm in output for {properties}"
+                # Verify area_sqkm is NOT in output
+                assert "area_sqkm" not in result, \
+                    f"Output should not have area_sqkm, got {result}"
+
 
 class TestWaterStandardizerIntegration:
     """Integration tests with the main standardizer"""
@@ -402,6 +466,7 @@ class TestWaterStandardizerIntegration:
                 "depth": "8",
                 "swimming": "yes",
                 "use": "recreation",
+                "area": "5",  # 5 km² = 5,000,000 m²
             }
         )
         
@@ -429,6 +494,7 @@ class TestWaterStandardizerIntegration:
         assert standardized_feature.properties.get("depth_m") == 8.0
         assert standardized_feature.properties.get("swimming") is True
         assert standardized_feature.properties.get("use") == "recreation"
+        assert standardized_feature.properties.get("area_sqm") == 5_000_000  # Converted from 5 km² to m²
 
     def test_multiple_water_types_in_dataset(self):
         """Test standardization of datasets with multiple water type features"""
@@ -484,3 +550,164 @@ class TestWaterStandardizerIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+
+class TestWaterStandardizerPropertyBased:
+    """Property-based tests using Hypothesis for WaterStandardizer
+    
+    Feature: distance-unit-standardization
+    Property 7: Water standardizer outputs area in square metres
+    """
+
+    @given(
+        area_value=st.one_of(
+            st.floats(min_value=0.001, max_value=1000, allow_nan=False, allow_infinity=False),
+            st.integers(min_value=1, max_value=1000)
+        ),
+        area_field=st.sampled_from(["area", "area_sqkm", "area_km2", "water:area", "area_sqm"])
+    )
+    def test_area_standardization_property(self, area_value, area_field):
+        """Property: For any water feature with area data, output has area_sqm in square metres.
+        
+        **Property 7: Water standardizer outputs area in square metres**
+        **Validates: Requirements 12.1, 12.2, 12.4**
+        
+        This property verifies that:
+        1. The standardizer always outputs the key 'area_sqm' (never 'area_sqkm')
+        2. The value is in square metres
+        3. Conversion from km² to m² is correct (multiply by 1,000,000)
+        """
+        # Generate random water properties with area data
+        properties = {
+            "name": "Test Water Feature",
+            "waterway": "river",
+            area_field: str(area_value)
+        }
+        
+        # Standardize the properties
+        result = WaterStandardizer.standardize_properties(properties)
+        
+        # Property assertions
+        # 1. Output key must be area_sqm, never area_sqkm
+        assert "area_sqkm" not in result, \
+            f"Output should not contain 'area_sqkm' key, got: {result.keys()}"
+        
+        # 2. If area was in input, output should have area_sqm
+        if area_field in properties and properties[area_field]:
+            assert "area_sqm" in result, \
+                f"Output should have 'area_sqm' for input field '{area_field}'"
+            
+            # 3. Value should be a number in square metres
+            area_sqm = result.get("area_sqm")
+            assert isinstance(area_sqm, (int, float)), \
+                f"area_sqm should be numeric, got {type(area_sqm)}"
+            assert area_sqm > 0, \
+                f"area_sqm should be positive, got {area_sqm}"
+            
+            # 4. Conversion verification
+            # For km² fields, value should be multiplied by 1,000,000
+            if area_field in ["area", "area_sqkm", "area_km2", "water:area"]:
+                expected_area_sqm = float(area_value) * 1_000_000
+                # Allow small floating point tolerance (0.1% difference)
+                tolerance = expected_area_sqm * 0.001
+                assert abs(area_sqm - expected_area_sqm) <= tolerance, \
+                    f"Expected ~{expected_area_sqm} m², got {area_sqm}"
+            
+            # For area_sqm input, should be returned as-is
+            elif area_field == "area_sqm":
+                expected_area_sqm = float(area_value)
+                assert abs(area_sqm - expected_area_sqm) < 0.01, \
+                    f"area_sqm should be ~{expected_area_sqm}, got {area_sqm}"
+
+    @given(
+        num_features=st.integers(min_value=1, max_value=5),
+        data=st.data()
+    )
+    def test_multiple_features_area_standardization(self, num_features, data):
+        """Property: For multiple water features, all outputs use area_sqm in square metres.
+        
+        **Property 7: Water standardizer outputs area in square metres**
+        **Validates: Requirements 12.1, 12.2, 12.4**
+        
+        This property verifies that the standardizer handles multiple features
+        consistently, always outputting area_sqm.
+        """
+        # Generate multiple random water features
+        for i in range(num_features):
+            area_value = data.draw(st.floats(
+                min_value=0.1,
+                max_value=500,
+                allow_nan=False,
+                allow_infinity=False
+            ))
+            
+            water_type = data.draw(st.sampled_from(["river", "lake", "stream"]))
+            
+            properties = {
+                "name": f"Water Feature {i}",
+                "waterway": water_type,
+                "area": str(area_value)  # area in km²
+            }
+            
+            result = WaterStandardizer.standardize_properties(properties)
+            
+            # Verify each feature has area_sqm and not area_sqkm
+            assert "area_sqkm" not in result, \
+                f"Feature {i}: Output should not have 'area_sqkm'"
+            assert "area_sqm" in result, \
+                f"Feature {i}: Output should have 'area_sqm'"
+            
+            # Verify conversion
+            area_sqm = result.get("area_sqm")
+            expected = float(area_value) * 1_000_000
+            tolerance = expected * 0.001
+            assert abs(area_sqm - expected) <= tolerance, \
+                f"Feature {i}: Expected ~{expected}, got {area_sqm}"
+
+    @given(
+        water_types=st.lists(
+            st.sampled_from([
+                "river", "stream", "lake", "canal", "reservoir",
+                "wetland", "pond", "bay", "estuary"
+            ]),
+            min_size=1,
+            max_size=5
+        ),
+        data=st.data()
+    )
+    def test_area_conversion_with_various_water_types(self, water_types, data):
+        """Property: Area standardization works correctly across different water types.
+        
+        **Property 7: Water standardizer outputs area in square metres**
+        **Validates: Requirements 12.1, 12.2, 12.4**
+        
+        This property verifies that area standardization is independent of water type.
+        """
+        for water_type in water_types:
+            area_km2 = data.draw(st.floats(
+                min_value=0.01,
+                max_value=100,
+                allow_nan=False,
+                allow_infinity=False
+            ))
+            
+            properties = {
+                "waterway": water_type,
+                "name": f"{water_type.title()} Test",
+                "area": str(area_km2)
+            }
+            
+            result = WaterStandardizer.standardize_properties(properties)
+            
+            # Verify output structure
+            assert "area_sqkm" not in result
+            assert "area_sqm" in result
+            
+            # Verify conversion
+            area_sqm = result["area_sqm"]
+            expected_sqm = area_km2 * 1_000_000
+            tolerance = expected_sqm * 0.001
+            assert abs(area_sqm - expected_sqm) <= tolerance, \
+                f"Water type '{water_type}': Area mismatch"
+

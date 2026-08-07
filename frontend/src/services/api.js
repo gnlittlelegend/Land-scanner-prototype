@@ -134,7 +134,7 @@ async function executeRequest(endpoint, options = {}) {
 
 /**
  * Analyze a polygon using the backend analysis engine
- * @param {Object} polygon - GeoJSON polygon to analyze
+ * @param {Object} polygon - GeoJSON polygon geometry to analyze
  * @returns {Promise<ApiResponse>} Analysis results
  * @throws {Error} If validation or request fails
  */
@@ -142,9 +142,17 @@ async function analyzePolygon(polygon) {
   // Validate on client side first
   validatePolygon(polygon)
 
+  // Wrap geometry in Feature object as expected by backend
+  const featureRequest = {
+    polygon: {
+      type: "Feature",
+      geometry: polygon
+    }
+  }
+
   const response = await executeRequest('/analyze', {
     method: 'POST',
-    body: JSON.stringify({ polygon })
+    body: JSON.stringify(featureRequest)
   })
 
   // Request succeeded, validate response structure

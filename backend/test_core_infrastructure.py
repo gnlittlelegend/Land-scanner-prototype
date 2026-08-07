@@ -9,7 +9,7 @@ from backend.data_models import (
     Polygon, Feature, RawDataset, StandardizedDataset,
     RuleResult, ProcessingStatus, AnalysisResponse, LandInformation
 )
-from backend.validators.polygon_validator import PolygonValidator, PolygonValidationError
+from backend.validators.polygon_validator import PolygonValidator, ValidationError
 from backend.main import app
 from datetime import datetime
 import json

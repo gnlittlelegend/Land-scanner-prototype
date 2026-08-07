@@ -118,7 +118,7 @@ class LandCoverCollector(DataCollector):
                     "type": "Feature",
                     "geometry": {"type": "Polygon", "coordinates": [...]},
                     "properties": {
-                        "area_square_kilometers": float,
+                        "area_sqm": float,
                         "bounding_box": {"min_lon", "min_lat", "max_lon", "max_lat"},
                         "centroid": {"longitude": float, "latitude": float},
                         "vertex_count": int,
@@ -137,10 +137,10 @@ class LandCoverCollector(DataCollector):
         
         try:
             bbox = self._get_bbox(polygon)
-            area_sqkm = polygon['properties'].get('area_square_kilometers', 0)
+            area_sqm = polygon['properties'].get('area_sqm', 0)
             
             self.logger.info(
-                f"Collecting Copernicus land cover data for area {area_sqkm:.2f} sqkm"
+                f"Collecting Copernicus land cover data for area {area_sqm:.0f} m²"
             )
             
             # Search STAC catalog for GLC datasets

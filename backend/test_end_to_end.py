@@ -43,14 +43,14 @@ def test_end_to_end():
     
     validator = PolygonValidator()
     polygon_metadata = validator.validate(test_polygon_geojson)
-    print(f"[OK] Polygon validated: {polygon_metadata.area_sqkm:.2f} km2")
+    print(f"[OK] Polygon validated: {polygon_metadata.area_sqm:.0f} m²")
     
     # Convert to proper format for collectors
     polygon = {
         'type': 'Feature',
         'geometry': test_polygon_geojson['geometry'],
         'properties': {
-            'area_square_kilometers': polygon_metadata.area_sqkm,
+            'area_sqm': polygon_metadata.area_sqm,
             'bounding_box': polygon_metadata.bounding_box,
             'centroid': polygon_metadata.centroid,
             'num_vertices': polygon_metadata.num_vertices,

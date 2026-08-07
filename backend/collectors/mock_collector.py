@@ -48,7 +48,7 @@ class MockCollector(DataCollector):
             geometry_type=self._get_geometry_type(),
             metadata={
                 "note": f"Mock data generated for testing ({self.provider_name})",
-                "polygon_area_sqkm": polygon.area_sqkm,
+                "polygon_area_sqm": polygon.area_sqm,
                 "generated_at": datetime.utcnow().isoformat()
             }
         )

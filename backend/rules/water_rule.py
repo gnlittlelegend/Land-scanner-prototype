@@ -21,9 +21,19 @@ logger = logging.getLogger(__name__)
 
 class WaterFeaturesRule(Rule):
     """
-    Water Features Rule implementation.
+    Water Features Rule implementation (WT-001).
     
-    Identifies water features and estimates coverage.
+    Identifies water features and estimates water coverage for a geographic area.
+    All area measurements are standardized to square metres (m²).
+    
+    Coverage categorization:
+    - Minimal: < 100,000 m² (less than 0.1 km²)
+    - Moderate: 100,000 - 1,000,000 m² (0.1 - 1 km²)
+    - Significant: > 1,000,000 m² (more than 1 km²)
+    
+    Example outputs:
+    - Small pond area (5,000 m²): minimal coverage
+    - Large lake area (2,000,000 m²): significant coverage
     """
     
     def __init__(self):
@@ -95,7 +105,7 @@ class WaterFeaturesRule(Rule):
                 "total_water_features": total_water_features,
                 "water_types": water_type_breakdown,
                 "primary_water_type": primary_water_type,
-                "total_water_area_sqkm": round(total_area / 1_000_000, 2) if total_area > 0 else 0,
+                "total_water_area_sqm": round(total_area, 2) if total_area > 0 else 0,
                 "water_coverage_category": self._categorize_coverage(total_area),
                 "hydrological_features": self._identify_features(water_types)
             }
@@ -115,18 +125,28 @@ class WaterFeaturesRule(Rule):
     @staticmethod
     def _categorize_coverage(area_sqm: float) -> str:
         """
-        Categorize water coverage based on area.
+        Categorize water coverage based on area in square metres.
+        
+        Classifies water coverage into three categories based on total area.
+        All input and output values are in square metres (m²).
         
         Args:
-            area_sqm: Total water area in square meters
+            area_sqm: Total water area in square metres (m²)
             
         Returns:
-            Coverage category (minimal, moderate, significant)
+            Coverage category string:
+            - "minimal": < 100,000 m² (< 0.1 km²) - small streams, ponds
+            - "moderate": 100,000 - 1,000,000 m² (0.1 - 1 km²) - medium lakes
+            - "significant": > 1,000,000 m² (> 1 km²) - large lakes, rivers
+            
+        Examples:
+            5,000 m² (small pond) → "minimal"
+            500,000 m² (medium lake) → "moderate"
+            2,000,000 m² (large lake) → "significant"
         """
-        area_sqkm = area_sqm / 1_000_000
-        if area_sqkm < 0.1:
+        if area_sqm < 100_000:
             return "minimal"
-        elif area_sqkm < 1.0:
+        elif area_sqm < 1_000_000:
             return "moderate"
         else:
             return "significant"

@@ -220,7 +220,7 @@ def test_task_12_1_e2e():
         polygon_metadata = validator.validate(test_polygon_geojson)
         
         print(f"✓ Polygon validated successfully")
-        print(f"  Area: {polygon_metadata.area_sqkm:.2f} km² (within limits 10m² - 100km²)")
+        print(f"  Area: {polygon_metadata.area_sqm:.0f} m² (within limits 10m² - 100000000m²)")
         print(f"  Vertices: {polygon_metadata.num_vertices} (max 10,000)")
         print(f"  Bounding box: {polygon_metadata.bounding_box}")
         print(f"  Centroid: {polygon_metadata.centroid}")
